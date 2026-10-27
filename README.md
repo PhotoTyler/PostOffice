@@ -21,7 +21,9 @@ mail goes back to the sender's mailbox or pocket.
 
 ## Commands
 
-`/postoffice` (`/post`, `/mail`): `help`, `list`, `pack`, and for ops `give <item> [player] [amount]`,
+`/postoffice` (`/post`, `/mail`): `help`, `list`, `pack`, `items` (a creative-style menu of every
+PostOffice item, for players in creative mode or with `postoffice.items`; Minecraft's own creative
+tabs can't be changed by plugins), and for ops `give <item> [player] [amount]`,
 `reload`, `status`.
 
 Permissions: `postoffice.use`, `postoffice.place.mailbox`, `postoffice.place.dropoff` (all default

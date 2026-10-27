@@ -37,6 +37,14 @@ final class PostCommand implements TabExecutor {
                             "location", pb.world + " " + pb.x + ", " + pb.y + ", " + pb.z);
                 }
             }
+            case "items" -> {
+                if (!(sender instanceof Player p)) return true;
+                if (!p.hasPermission("postoffice.items") && p.getGameMode() != org.bukkit.GameMode.CREATIVE) {
+                    Msg.send(p, "no-permission");
+                    return true;
+                }
+                new ItemsMenu(plugin).open(p);
+            }
             case "pack" -> {
                 if (sender instanceof Player p) plugin.pack().send(p);
             }
@@ -98,7 +106,7 @@ final class PostCommand implements TabExecutor {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            out.addAll(List.of("help", "list", "pack"));
+            out.addAll(List.of("help", "list", "pack", "items"));
             if (sender.hasPermission("postoffice.admin")) out.addAll(List.of("give", "reload", "status"));
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give") && sender.hasPermission("postoffice.admin")) {
             out.addAll(GIVEABLE);

@@ -61,6 +61,9 @@ abstract class Menu implements InventoryHolder {
 
     void onClose(Player p) {}
 
+    /** Clicks on slots without a button. */
+    void click(Player p, int slot, boolean shift) {}
+
     static ItemStack icon(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material);
         item.editMeta(m -> {
@@ -95,7 +98,9 @@ abstract class Menu implements InventoryHolder {
             if (menu.isFreeSlot(raw) && e.isShiftClick()) return; // shift out of the free slot is fine
             e.setCancelled(true);
             Consumer<Player> action = menu.buttons.get(raw);
-            if (action != null && e.getWhoClicked() instanceof Player p) action.accept(p);
+            if (!(e.getWhoClicked() instanceof Player p)) return;
+            if (action != null) action.accept(p);
+            else menu.click(p, raw, e.isShiftClick());
         }
 
         @EventHandler(ignoreCancelled = true)

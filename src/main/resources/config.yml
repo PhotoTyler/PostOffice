@@ -159,6 +159,7 @@ messages:
     list-line: "<white><mailbox></white> <gray>- <count> waiting - <location>"
     given: "<green>Gave <count>x <item> to <player>."
     reloaded: "<green>PostOffice reloaded."
+    items-title: "<dark_gray>PostOffice items <gray>(shift = stack)"
     status: "<gray>Postmen out: <white><postmen></white>, mail in the post: <white><queued></white>"
     help:
       - "<gold>PostOffice</gold>"
@@ -168,3 +169,4 @@ messages:
       - "<yellow>Drop-off</yellow>: right-click with mail to send it."
       - "<gray>/postoffice list</gray> - your mailboxes"
       - "<gray>/postoffice pack</gray> - re-send the texture pack"
+      - "<gray>/postoffice items</gray> - all PostOffice items (creative mode or ops)"

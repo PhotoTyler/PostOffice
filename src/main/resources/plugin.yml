@@ -19,6 +19,9 @@ permissions:
   postoffice.place.dropoff:
     description: Place public drop-off postboxes
     default: true
+  postoffice.items:
+    description: Open the /postoffice items catalogue outside creative mode
+    default: op
   postoffice.admin:
     description: Give items, reload, break anyone's boxes
     default: op
