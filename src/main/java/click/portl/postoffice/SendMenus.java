@@ -42,6 +42,7 @@ final class SendMenus {
                 });
                 button(i, head, p -> new PickMailbox(plugin, ctx, uuid, null).open(p));
             }
+            nameButton(this, plugin, ctx, () -> new PickPlayer(plugin, fresh(ctx), page).open(ctx.sender()));
             if (page > 0) button(45, icon(Material.ARROW, "<yellow>Previous page"), p -> new PickPlayer(plugin, ctx, page - 1).open(p));
             if (page + 1 < pages) button(53, icon(Material.ARROW, "<yellow>Next page"), p -> new PickPlayer(plugin, ctx, page + 1).open(p));
             button(49, sendingIcon(ctx), null);
@@ -68,7 +69,13 @@ final class SendMenus {
             }
             button(45, icon(Material.ARROW, "<yellow>Back"), p -> new PickPlayer(plugin, ctx, 0).open(p));
             button(49, sendingIcon(ctx), null);
-            if (chosen != null) {
+            UUID keep = chosen;
+            Runnable reopen = () -> new PickMailbox(plugin, fresh(ctx), recipient, keep).open(ctx.sender());
+            nameButton(this, plugin, ctx, reopen);
+            if (chosen != null && needsName(ctx.snapshot())) {
+                button(53, icon(Material.RED_CONCRETE, "<red><bold>Name the box first", "<gray>Click to say who it's from"),
+                        p -> askName(plugin, ctx, reopen));
+            } else if (chosen != null) {
                 UUID target = chosen;
                 button(53, icon(Material.LIME_CONCRETE, "<green><bold>Send", "<gray>Hand it to the Postman"),
                         p -> send(plugin, ctx, recipient, target));
@@ -77,6 +84,32 @@ final class SendMenus {
             }
             fill();
         }
+    }
+
+    /** Parcels start unnamed and have to say who they're from before they can be posted. */
+    static boolean needsName(ItemStack item) {
+        return MailItems.kind(item) == MailKind.PARCEL && MailItems.sender(item) == null;
+    }
+
+    /** The menu again, with the item as it is now (after renaming). */
+    private static Context fresh(Context ctx) {
+        ItemStack now = ctx.sender().getInventory().getItem(ctx.slot());
+        return new Context(ctx.sender(), ctx.slot(), now == null ? ctx.snapshot() : now.clone(), ctx.dropoff());
+    }
+
+    private static void nameButton(Menu menu, PostOfficePlugin plugin, Context ctx, Runnable reopen) {
+        String sender = MailItems.sender(ctx.snapshot());
+        ItemStack tag = sender == null
+                ? Menu.icon(Material.NAME_TAG, "<red>Not named yet", "<gray>Who is this from?", "<yellow>Click to name it")
+                : Menu.icon(Material.NAME_TAG, "<yellow>From: <white>" + PostBlocks.escape(sender), "<gray>Click to change the name");
+        menu.button(47, tag, p -> askName(plugin, ctx, reopen));
+    }
+
+    private static void askName(PostOfficePlugin plugin, Context ctx, Runnable reopen) {
+        Player p = ctx.sender();
+        String id = MailItems.ensureUnique(p.getInventory().getItem(ctx.slot()));
+        p.closeInventory();
+        SenderNames.ask(plugin, p, id, ctx.slot(), "naming.question-send", reopen);
     }
 
     private static ItemStack sendingIcon(Context ctx) {
@@ -97,6 +130,10 @@ final class SendMenus {
         ItemStack now = p.getInventory().getItem(ctx.slot());
         if (now == null || !now.isSimilar(ctx.snapshot())) {
             Msg.send(p, "send.item-moved");
+            return;
+        }
+        if (needsName(now)) {
+            Msg.send(p, "naming.needed");
             return;
         }
         ItemStack posted = MailItems.prepareForPost(now, p);

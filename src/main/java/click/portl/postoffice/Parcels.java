@@ -157,6 +157,7 @@ final class Parcels {
             return;
         }
         pp.open = false;
+        pp.sender = null; // repacked: whoever posts it names it again
         store.saveParcels();
         removeDisplays(pp, "payload");
         removeDisplays(pp, "holo");

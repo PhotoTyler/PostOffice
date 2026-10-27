@@ -167,6 +167,15 @@ messages:
   no-permission: "<red>You can't do that."
   prompt:
     cancelled: "<gray>Cancelled."
+  naming:
+    question-send: "<yellow>Who is this from? This name is shown to whoever receives it."
+    question-postmaster: "<gold>[Postmaster]</gold> <white>Who would you like this to be from?"
+    use-my-name: "<green><bold>[Use my name: <player>]</bold></green>"
+    use-my-name-hover: "<gray>Click to put your own name on it"
+    or-type: "<gray> or type any name in chat (or 'cancel')."
+    set: "<green>It now says it's from <white><sender></white>."
+    needed: "<red>Name the box first - who is it from?"
+    item-gone: "<red>Keep the letter or parcel in your inventory while you name it."
   resource-pack:
     prompt: "<gold>PostOffice</gold> uses a small texture pack for letters, parcels and mailboxes."
     broken: "<red>The PostOffice texture pack couldn't be downloaded (<error>). Fix resource-pack.url in plugins/PostOffice/config.yml, then /postoffice reload."

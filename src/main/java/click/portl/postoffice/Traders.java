@@ -112,7 +112,18 @@ final class Traders implements Listener {
         if (e.getHand() != EquipmentSlot.HAND) return;
         Player p = e.getPlayer();
         Villager v = (Villager) e.getRightClicked();
-        if (v.getPersistentDataContainer().has(Keys.CLERK)) greet(p);
+        if (v.getPersistentDataContainer().has(Keys.CLERK)) {
+            MailKind held = MailItems.kind(p.getInventory().getItemInMainHand());
+            if (held == MailKind.PARCEL || held == MailKind.SEALED_LETTER || held == MailKind.LETTER) {
+                // "Who would you like this to be from?"
+                int slot = p.getInventory().getHeldItemSlot();
+                String id = MailItems.ensureUnique(p.getInventory().getItem(slot));
+                v.getWorld().playSound(v.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1f, 1f);
+                SenderNames.ask(plugin, p, id, slot, "naming.question-postmaster", null);
+                return;
+            }
+            greet(p);
+        }
         Merchant m = Bukkit.createMerchant(v.customName() != null ? v.customName() : Msg.item("Postman"));
         m.setRecipes(wild ? randomRecipes(v) : recipes());
         p.openMerchant(m, true);

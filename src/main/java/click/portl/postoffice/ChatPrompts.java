@@ -29,6 +29,16 @@ final class ChatPrompts implements Listener {
         Msg.send(p, messageKey);
     }
 
+    /** Same, with a ready-made message (e.g. one with clickable buttons). */
+    void ask(Player p, net.kyori.adventure.text.Component question, Consumer<String> handler) {
+        pending.put(p.getUniqueId(), new Prompt(handler, System.currentTimeMillis() + 60_000));
+        p.sendMessage(question);
+    }
+
+    void cancel(Player p) {
+        pending.remove(p.getUniqueId());
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncChatEvent e) {
         Prompt prompt = pending.remove(e.getPlayer().getUniqueId());
