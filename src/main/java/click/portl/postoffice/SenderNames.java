@@ -37,7 +37,8 @@ final class SenderNames {
             Msg.send(p, "naming.item-gone");
             return;
         }
-        String clean = PostBlocks.trimName(name);
+        // "me" means the player's own in-game name
+        String clean = name.trim().equalsIgnoreCase("me") ? p.getName() : PostBlocks.trimName(name);
         ItemStack item = p.getInventory().getItem(slot);
         MailItems.setSender(item, clean);
         Msg.send(p, "naming.set", "sender", clean);
