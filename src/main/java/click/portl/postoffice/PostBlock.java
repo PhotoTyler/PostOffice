@@ -64,6 +64,11 @@ final class PostBlock {
         return new BlockKey(world, x, y, z);
     }
 
+    /** Drop-offs are pillar boxes two blocks tall. */
+    int height() {
+        return type == Type.DROPOFF ? 2 : 1;
+    }
+
     boolean isLoaded() {
         World w = bukkitWorld();
         return w != null && w.isChunkLoaded(x >> 4, z >> 4);

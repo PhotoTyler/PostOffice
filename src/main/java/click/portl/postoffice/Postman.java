@@ -88,39 +88,50 @@ final class Postman {
         World w = at.getWorld();
         w.getChunkAt(at); // make sure it's loaded
         villager = w.spawn(at, Villager.class, v -> {
-            v.setPersistent(false);
-            v.setRemoveWhenFarAway(false);
-            v.customName(Msg.item(plugin.getConfig().getString("postman.display-name", "<gold>Postman")));
-            v.setCustomNameVisible(true);
-            v.setAdult();
-            v.setAgeLock(true);
-            v.setCanPickupItems(false);
-            v.setAware(false);
+            dress(plugin, v, plugin.getConfig().getString("postman.display-name", "<gold>Postman"), false);
             v.setGravity(false);
-            v.setRecipes(List.of());
-            Villager.Profession prof = RegistryAccess.registryAccess().getRegistry(RegistryKey.VILLAGER_PROFESSION)
-                    .get(Key.key(plugin.getConfig().getString("postman.profession", "cartographer").toLowerCase()));
-            if (prof != null) v.setProfession(prof);
-            v.setVillagerLevel(5);
             v.getPersistentDataContainer().set(Keys.POSTMAN, PersistentDataType.STRING, id.toString());
         });
-        if (plugin.getConfig().getBoolean("postman.hat", true)) {
-            hat = w.spawn(at, ItemDisplay.class, d -> {
-                d.setItemStack(Displays.modelItem("postman_cap"));
-                d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
-                d.setPersistent(false);
-                d.setTeleportDuration(2);
-                d.setTransformation(new Transformation(new Vector3f(0f, (float) cfg("hat-offset", 0.02), 0f),
-                        new Quaternionf(), new Vector3f(1f, 1f, 1f), new Quaternionf()));
-                d.getPersistentDataContainer().set(Keys.POSTMAN, PersistentDataType.STRING, id.toString());
-            });
-            villager.addPassenger(hat);
-        }
+        hat = addCap(plugin, villager, Keys.POSTMAN, id.toString(), false);
         lastProgress = at.clone();
         stuck = 0;
         path = null;
         state = State.WALKING;
         syncTickets();
+    }
+
+    /** Postman look and settings, shared with the post office clerk. AI off: we move him ourselves. */
+    static void dress(PostOfficePlugin plugin, Villager v, String name, boolean persistent) {
+        v.setPersistent(persistent);
+        v.setRemoveWhenFarAway(false);
+        v.customName(Msg.item(name));
+        v.setCustomNameVisible(true);
+        v.setAdult();
+        v.setAgeLock(true);
+        v.setCanPickupItems(false);
+        v.setAware(false);
+        v.setRecipes(List.of());
+        v.setVillagerType(Villager.Type.PLAINS);
+        // Nitwit by default: the resource pack turns the nitwit outfit into the postal uniform.
+        Villager.Profession prof = RegistryAccess.registryAccess().getRegistry(RegistryKey.VILLAGER_PROFESSION)
+                .get(Key.key(plugin.getConfig().getString("postman.profession", "nitwit").toLowerCase()));
+        if (prof != null) v.setProfession(prof);
+    }
+
+    /** The 3D postman cap from the resource pack, riding on his head. */
+    static ItemDisplay addCap(PostOfficePlugin plugin, Villager v, org.bukkit.NamespacedKey tag, String id, boolean persistent) {
+        if (!plugin.getConfig().getBoolean("postman.hat", true)) return null;
+        ItemDisplay cap = v.getWorld().spawn(v.getLocation(), ItemDisplay.class, d -> {
+            d.setItemStack(Displays.modelItem("postman_cap"));
+            d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
+            d.setPersistent(persistent);
+            d.setTeleportDuration(2);
+            d.setTransformation(new Transformation(new Vector3f(0f, (float) plugin.getConfig().getDouble("postman.hat-offset", 0.02), 0f),
+                    new Quaternionf(), new Vector3f(1f, 1f, 1f), new Quaternionf()));
+            d.getPersistentDataContainer().set(tag, PersistentDataType.STRING, id);
+        });
+        v.addPassenger(cap);
+        return cap;
     }
 
     void despawnQuietly() {
@@ -293,6 +304,7 @@ final class Postman {
     private void step(Location here) {
         double speed = cfg("speed", 0.17);
         Location node = path.get(pathIndex);
+        openDoor(node.getBlock());
         double tx = node.getBlockX() + 0.5, ty = node.getBlockY(), tz = node.getBlockZ() + 0.5;
         double dx = tx - here.getX(), dy = ty - here.getY(), dz = tz - here.getZ();
         double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -308,6 +320,29 @@ final class Postman {
         next.setYaw(yaw);
         next.setPitch(0);
         move(next);
+    }
+
+    /** Villager paths go through doors; open them on the way and shut them behind him. */
+    private void openDoor(Block b) {
+        if (!org.bukkit.Tag.WOODEN_DOORS.isTagged(b.getType())) return;
+        if (!(b.getBlockData() instanceof org.bukkit.block.data.type.Door door)) return;
+        if (door.getHalf() == org.bukkit.block.data.Bisected.Half.TOP) {
+            b = b.getRelative(0, -1, 0);
+            if (!(b.getBlockData() instanceof org.bukkit.block.data.type.Door lower)) return;
+            door = lower;
+        }
+        if (door.isOpen()) return;
+        door.setOpen(true);
+        b.setBlockData(door, true);
+        b.getWorld().playSound(b.getLocation(), Sound.BLOCK_WOODEN_DOOR_OPEN, 1f, 1f);
+        Block lower = b;
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (lower.getBlockData() instanceof org.bukkit.block.data.type.Door d && d.isOpen()) {
+                d.setOpen(false);
+                lower.setBlockData(d, true);
+                lower.getWorld().playSound(lower.getLocation(), Sound.BLOCK_WOODEN_DOOR_CLOSE, 1f, 1f);
+            }
+        }, 40L);
     }
 
     private void move(Location to) {

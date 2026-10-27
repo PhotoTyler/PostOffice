@@ -18,6 +18,8 @@ final class Keys {
     static NamespacedKey BLOCK_ID;    // tag on mailbox / drop-off display entities
     static NamespacedKey PARCEL_ID;   // tag on placed parcel display entities
     static NamespacedKey ROLE;        // which display entity this is (model, holo, flap...)
+    static NamespacedKey CLERK;       // Post Office Postmaster (value = village id)
+    static NamespacedKey TRADER;      // villager that trades as a Postman
 
     static NamespacedKey RECIPE_LETTER;
     static NamespacedKey RECIPE_EMPTY_BOX;
@@ -41,6 +43,8 @@ final class Keys {
         BLOCK_ID = new NamespacedKey(plugin, "block_id");
         PARCEL_ID = new NamespacedKey(plugin, "parcel_id");
         ROLE = new NamespacedKey(plugin, "role");
+        CLERK = new NamespacedKey(plugin, "clerk");
+        TRADER = new NamespacedKey(plugin, "trader");
 
         RECIPE_LETTER = new NamespacedKey(plugin, "letter");
         RECIPE_EMPTY_BOX = new NamespacedKey(plugin, "empty_box");

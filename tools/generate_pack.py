@@ -316,6 +316,56 @@ CAP_FRONT = [
 CAP_PAL = {"n": hexc("1b2a4a"), "g": hexc("d4af37"), "G": hexc("a8862a"), "y": hexc("f3d36b")}
 
 
+# ---------------------------------------------------------------- Postman villager skin
+
+def postman_skin():
+    """64x64 villager profession overlay (replaces the nitwit outfit): navy uniform, red collar,
+    gold buttons, brown belt and mail bag. Transparent areas show the villager's own skin."""
+    img = [[CLEAR] * 64 for _ in range(64)]
+    navy, navy_d = hexc("1b2a4a"), hexc("142038")
+    gold, red = hexc("d4af37"), hexc("c8102e")
+    brown, brown_d = hexc("8b5a2b"), hexc("5e3a1a")
+    trousers, shoes = hexc("232a3d"), hexc("161616")
+    rnd = random.Random(42)
+
+    def rect(x0, y0, x1, y1, c, jitter=0.04):
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                img[y][x] = shade(c, 1 + rnd.uniform(-jitter, jitter))
+
+    # body (under the coat)
+    rect(16, 20, 44, 38, navy)
+    rect(16, 20, 22, 26, CLEAR, 0)
+    rect(38, 20, 44, 26, CLEAR, 0)
+    # coat (the villager "robe", 8x20x6 at 0,38)
+    rect(6, 38, 22, 44, navy)            # top + bottom faces
+    rect(0, 44, 28, 64, navy)            # all four sides
+    rect(0, 44, 28, 46, red, 0.02)       # collar
+    rect(0, 55, 28, 57, brown_d, 0.02)   # belt
+    rect(9, 55, 11, 57, gold, 0)         # buckle
+    for y in (47, 50, 53, 59):           # buttons down the front
+        img[y][10] = gold
+    for i in range(9):                   # bag strap across the chest
+        x, y = 6 + i, 46 + i
+        if x < 14:
+            img[y][x] = brown_d
+    rect(11, 57, 14, 63, brown)          # mail bag
+    rect(11, 57, 14, 58, brown_d, 0)
+    img[59][12] = gold
+    rect(20, 63, 28, 64, navy_d, 0)
+    rect(0, 63, 20, 64, navy_d, 0)
+    # arms (sleeves); the folded middle piece (hands) stays bare
+    rect(48, 22, 56, 26, navy)
+    rect(44, 26, 60, 34, navy)
+    rect(44, 32, 60, 34, gold, 0.02)     # cuffs
+    # legs
+    rect(4, 22, 12, 26, trousers)
+    rect(8, 22, 12, 26, shoes, 0)
+    rect(0, 26, 16, 38, trousers)
+    rect(0, 36, 16, 38, shoes, 0.02)
+    return img
+
+
 def build_textures():
     t = os.path.join(NS, "textures")
     write_png(os.path.join(t, "item", "letter.png"), from_map(LETTER, PAPER))
@@ -351,16 +401,18 @@ def build_textures():
 
     write_png(os.path.join(ROOT, "pack.png"), scale_up(from_map(SEALED, ENV), 8))
 
+    # The Postman is a nitwit villager, so the nitwit outfit becomes the postal uniform.
+    write_png(os.path.join(ROOT, "assets", "minecraft", "textures", "entity", "villager", "profession", "nitwit.png"),
+              postman_skin())
+
 
 # ---------------------------------------------------------------- models
 
-def el(frm, to, tex, faces=("north", "south", "east", "west", "up", "down"), per_face=None):
+def el(frm, to, tex, faces=("north", "south", "east", "west", "up", "down"), per_face=None, uv=None):
+    """A cuboid. Pass uv for parts taller than 16 so each face maps the whole texture."""
     per_face = per_face or {}
-    return {
-        "from": frm,
-        "to": to,
-        "faces": {f: {"texture": per_face.get(f, tex)} for f in faces},
-    }
+    face = lambda f: {"texture": per_face.get(f, tex), **({"uv": uv} if uv else {})}
+    return {"from": frm, "to": to, "faces": {f: face(f) for f in faces}}
 
 
 BLOCK_DISPLAY = {
@@ -417,17 +469,31 @@ def build_models():
     }
 
     # Public drop-off: a pillar box
+    # Public drop-off: a pillar box two blocks tall (the plugin puts barriers in both blocks).
+    full = [0, 0, 16, 16]
     models["dropoff"] = {
         "parent": "postoffice:item/block_base",
         "textures": {"particle": tex("red_paint"), "red": tex("red_paint"), "front": tex("dropoff_front"),
                      "black": tex("black_paint"), "dark": tex("red_paint_dark")},
         "elements": [
             el([3, 0, 3], [13, 1, 13], "#black"),
-            el([3.5, 1, 3.5], [12.5, 13, 12.5], "#red", per_face={"south": "#front"}),
-            el([3, 13, 3], [13, 14, 13], "#dark"),
-            el([4, 14, 4], [12, 15, 12], "#red"),
-            el([5.5, 15, 5.5], [10.5, 16, 10.5], "#dark"),
+            el([3.5, 1, 3.5], [12.5, 16, 12.5], "#red", uv=full),
+            el([3.5, 16, 3.5], [12.5, 27, 12.5], "#red", per_face={"south": "#front"}, uv=full),
+            el([3, 27, 3], [13, 28.5, 13], "#dark", uv=full),
+            el([4, 28.5, 4], [12, 30, 12], "#red", uv=full),
+            el([5.5, 30, 5.5], [10.5, 31, 10.5], "#dark", uv=full),
+            el([7, 31, 7], [9, 32, 9], "#black", uv=full),
         ],
+        "display": {
+            **BLOCK_DISPLAY,
+            "gui": {"rotation": [30, 45, 0], "translation": [0, -3.5, 0], "scale": [0.36, 0.36, 0.36]},
+            "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.18, 0.18, 0.18]},
+            "fixed": {"rotation": [0, 0, 0], "translation": [0, -4, 0], "scale": [0.3, 0.3, 0.3]},
+            "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 1, 0], "scale": [0.22, 0.22, 0.22]},
+            "thirdperson_lefthand": {"rotation": [75, 45, 0], "translation": [0, 1, 0], "scale": [0.22, 0.22, 0.22]},
+            "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, -2, 0], "scale": [0.25, 0.25, 0.25]},
+            "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, -2, 0], "scale": [0.25, 0.25, 0.25]},
+        },
     }
 
     models["parcel_closed"] = {

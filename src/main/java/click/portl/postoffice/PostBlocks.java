@@ -38,7 +38,15 @@ final class PostBlocks {
     PostBlocks(PostOfficePlugin plugin, DataStore store) {
         this.plugin = plugin;
         this.store = store;
-        for (PostBlock b : store.blocks.values()) byLoc.put(b.key(), b);
+        for (PostBlock b : store.blocks.values()) index(b);
+    }
+
+    private void index(PostBlock b) {
+        for (int i = 0; i < b.height(); i++) byLoc.put(new BlockKey(b.world, b.x, b.y + i, b.z), b);
+    }
+
+    private void unindex(PostBlock b) {
+        for (int i = 0; i < b.height(); i++) byLoc.remove(new BlockKey(b.world, b.x, b.y + i, b.z));
     }
 
     PostBlock at(Block b) {
@@ -115,7 +123,13 @@ final class PostBlocks {
             return false;
         }
         Block target = placeTarget(clicked, face);
-        if (target == null || !claimBlock(p, target, clicked, hand, slot)) return false;
+        if (target == null) return false;
+        if (type == PostBlock.Type.DROPOFF && !target.getRelative(BlockFace.UP).isReplaceable()) {
+            Msg.send(p, "dropoff.no-room");
+            return false;
+        }
+        if (!claimBlock(p, target, clicked, hand, slot)) return false;
+        if (type == PostBlock.Type.DROPOFF) target.getRelative(BlockFace.UP).setType(Material.BARRIER, false);
 
         String name;
         if (hand.getItemMeta().hasCustomName()) {
@@ -132,7 +146,7 @@ final class PostBlocks {
         PostBlock pb = new PostBlock(UUID.randomUUID(), type, p.getUniqueId(), name, target.getWorld().getName(),
                 target.getX(), target.getY(), target.getZ(), snapYaw(p.getYaw()));
         store.blocks.put(pb.id, pb);
-        byLoc.put(pb.key(), pb);
+        index(pb);
         store.saveBlocks();
         refresh(pb);
 
@@ -141,6 +155,18 @@ final class PostBlocks {
         if (type.isMailbox()) Msg.send(p, "mailbox.placed", "mailbox", pb.name);
         else Msg.send(p, "dropoff.placed");
         return true;
+    }
+
+    /** A box the plugin builds itself (village Post Offices). */
+    PostBlock placeSystem(PostBlock.Type type, Block target, float yaw, UUID owner, String name) {
+        for (int i = 0; i < (type == PostBlock.Type.DROPOFF ? 2 : 1); i++) target.getRelative(0, i, 0).setType(Material.BARRIER, false);
+        PostBlock pb = new PostBlock(UUID.randomUUID(), type, owner, name, target.getWorld().getName(),
+                target.getX(), target.getY(), target.getZ(), yaw);
+        store.blocks.put(pb.id, pb);
+        index(pb);
+        store.saveBlocks();
+        refresh(pb);
+        return pb;
     }
 
     static String trimName(String name) {
@@ -175,11 +201,14 @@ final class PostBlocks {
 
     void remove(PostBlock pb) {
         store.blocks.remove(pb.id);
-        byLoc.remove(pb.key());
+        unindex(pb);
         store.saveBlocks();
         if (pb.type.isMailbox() && store.mailCount(pb.id) == 0) store.deleteMail(pb.id);
         Block b = pb.block();
-        if (b != null && b.getType() == Material.BARRIER) b.setType(Material.AIR);
+        for (int i = 0; b != null && i < pb.height(); i++) {
+            Block part = b.getRelative(0, i, 0);
+            if (part.getType() == Material.BARRIER) part.setType(Material.AIR);
+        }
         if (pb.isLoaded()) removeDisplays(pb, null);
     }
 

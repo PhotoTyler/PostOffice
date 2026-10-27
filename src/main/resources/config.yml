@@ -13,7 +13,8 @@ postman:
   display-name: "<gold>Postman"
   # Name used in his chat messages.
   name: "Postman"
-  profession: cartographer
+  # nitwit = the custom postal uniform from the resource pack (this restyles every nitwit villager).
+  profession: nitwit
   # Wear the little postman cap from the resource pack.
   hat: true
   # Moves the cap up/down on his head (blocks).
@@ -36,10 +37,46 @@ postman:
   killable: true
   dialogue:
     - "I deliver the mail around here! Use a <yellow>Drop-off postbox</yellow> to send a letter or parcel."
-    - "Write a letter with paper and black dye, then post it at a <yellow>Drop-off</yellow>. I'll do the walking!"
+    - "Write a letter with paper and an ink sac, then post it at a <yellow>Drop-off</yellow>. I'll do the walking!"
     - "Parcels? Put up to a whole stack in a cardboard box and I'll carry it to any mailbox."
     - "Got a mailbox yet, <player>? Craft one, place it, and people can send you things."
     - "Rain or shine, the post gets through. Mostly."
+
+post-offices:
+  # Build a Post Office (public drop-off + Postmaster villager) in every village, including villages
+  # that already exist: each one is built the first time a chunk of that village loads.
+  enabled: true
+  # Worlds to build in; empty = every world.
+  worlds: []
+  clerk-name: "<gold>Postmaster"
+  sign:
+    - "<bold>POST OFFICE"
+    - "✉"
+    - "Letters & Parcels"
+  clerk-dialogue:
+    - "Welcome to the Post Office! Use the red postbox to send a letter or parcel."
+    - "Need a mailbox? Craft one with iron, dye and a chest, then place it at home."
+    - "Letters are paper and an ink sac. Parcels hold a whole stack - pack them with planks, sticks and wheat."
+    - "Our Postman sets off from here. Please don't attack him, <player>."
+
+village-postmen:
+  # An unemployed villager within this many blocks of a drop-off postbox becomes a Postman
+  # (like a job block). Postmen and the Post Office Postmaster trade the items below.
+  enabled: true
+  radius: 3
+  name: "<gold>Postman"
+  # cost (+ optional cost2) -> result. Items: a Minecraft material, or postoffice:<letter|empty_box|mailbox_uk|mailbox_us|dropoff>.
+  trades:
+    - {cost: "PAPER 24", result: "EMERALD 1"}
+    - {cost: "INK_SAC 6", result: "EMERALD 1"}
+    - {cost: "postoffice:letter 8", result: "EMERALD 1"}
+    - {cost: "postoffice:empty_box 4", result: "EMERALD 1"}
+    - {cost: "EMERALD 1", result: "PAPER 12"}
+    - {cost: "EMERALD 1", result: "INK_SAC 4"}
+    - {cost: "EMERALD 1", result: "postoffice:letter 4"}
+    - {cost: "EMERALD 1", result: "postoffice:empty_box 2"}
+    - {cost: "EMERALD 6", result: "postoffice:mailbox_uk 1"}
+    - {cost: "EMERALD 6", result: "postoffice:mailbox_us 1"}
 
 mailbox:
   default-name: "Mailbox <number>"
@@ -56,15 +93,15 @@ parcels:
 items:
   letter:
     name: "<white>Letter"
+    opened-name: "<white>Opened Letter"
     lore:
-      - "<gray>Write in it like a Book & Quill."
-      - "<gray>Sneak + right-click to attach an item"
-      - "<gray>or change the sender name."
-      - "<gray>Post it at a <yellow>Drop-off</yellow>."
+      - "<gray>Right-click to write or read it."
+      - "<gray>Put it in an envelope, then post it"
+      - "<gray>at a <yellow>Drop-off</yellow>."
   sealed_letter:
-    name: "<white>Sealed Letter"
+    name: "<white>Letter in Envelope"
     lore:
-      - "<gray>Right-click to read."
+      - "<gray>Right-click to open it."
   parcel:
     name: "<gold>Parcel"
     lore:
@@ -105,6 +142,7 @@ messages:
     cancelled: "<gray>Cancelled."
   resource-pack:
     prompt: "<gold>PostOffice</gold> uses a small texture pack for letters, parcels and mailboxes."
+    broken: "<red>The PostOffice texture pack couldn't be downloaded (<error>). Fix resource-pack.url in plugins/PostOffice/config.yml, then /postoffice reload."
   postman:
     delivered: "Hi <player>, I've just delivered your mail to <yellow><mailbox></yellow>!"
     killed: "<red>The Postman drops his bag... <count> item(s) spill out!"
@@ -124,6 +162,7 @@ messages:
     placed: "<green>Drop-off postbox placed. Anyone can post mail here."
     not-yours: "<gray>Only the person who placed this postbox can remove it."
     hint: "<gray>Hold a <white>letter</white> or <white>parcel</white> and right-click to post it."
+    no-room: "<red>The postbox is two blocks tall - it needs space above."
   send:
     title-players: "<dark_gray>Send to who?"
     title-mailboxes: "<dark_gray><player>'s mailboxes"
@@ -142,10 +181,22 @@ messages:
     returning: "<yellow><player> has no mailbox any more, so your mail is coming back to you."
     returned: "<yellow>The Postman returned <count> undeliverable item(s) to you."
   letter:
-    attach-title: "<dark_gray>Letter"
-    read-title: "<dark_gray>Letter"
-    sender-prompt: "<yellow>Type the sender name for this letter in chat <gray>(or 'cancel')."
-    sender-set: "<green>Sender name set to <white><sender></white>."
+    attach-title: "<dark_gray>Letter - attached item"
+    dialog-title: "<gold>✉ Letter"
+    dialog-hint: "<gray>Write your letter below. When it's ready, put it in an envelope and post it at a Drop-off. You can open an envelope and reseal it any time."
+    dialog-text-label: "Dear..."
+    dialog-from-label: "From"
+    dialog-attached: "<gray>Attached: <white><item>"
+    button-envelope: "<gold>✉ Put in envelope"
+    button-envelope-tip: "Seal the letter in its envelope"
+    button-attach: "Attach item"
+    button-attach-tip: "Tuck one item in with the letter (or take it out)"
+    button-save: "Save"
+    button-save-tip: "Keep it as an open letter"
+    button-cancel: "Cancel"
+    sealed: "<green>Your letter is sealed in its envelope."
+    saved: "<gray>Letter saved."
+    gone: "<red>You're not holding that letter any more."
     not-allowed: "<red>That item can't go in a letter. Use a parcel instead!"
     only-one: "<yellow>Letters can only hold one item - the rest went back to your inventory."
     attached: "<green>Attached <white><item></white> to the letter."
@@ -163,7 +214,7 @@ messages:
     status: "<gray>Postmen out: <white><postmen></white>, mail in the post: <white><queued></white>"
     help:
       - "<gold>PostOffice</gold>"
-      - "<yellow>Letter</yellow>: paper + black dye. Write in it; sneak + right-click to attach one item."
+      - "<yellow>Letter</yellow>: paper + ink sac. Right-click to write, attach an item and put it in an envelope."
       - "<yellow>Parcel</yellow>: planks/sticks/wheat around a stack (or an Empty Box + a stack)."
       - "<yellow>Mailbox</yellow>: place it to receive mail. Right-click to collect."
       - "<yellow>Drop-off</yellow>: right-click with mail to send it."

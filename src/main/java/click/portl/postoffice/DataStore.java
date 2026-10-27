@@ -44,6 +44,8 @@ final class DataStore {
     final Map<UUID, Delivery> deliveries = new LinkedHashMap<>();
     final Map<UUID, List<String>> returns = new HashMap<>();
     final Map<UUID, PlacedParcel> parcels = new LinkedHashMap<>();
+    final java.util.Set<String> villagesDone = new java.util.HashSet<>();
+    final Map<String, PostOffices.Office> offices = new LinkedHashMap<>();
 
     DataStore(PostOfficePlugin plugin) {
         this.plugin = plugin;
@@ -102,6 +104,8 @@ final class DataStore {
             }
         }
 
+        loadVillages();
+
         y = YamlConfiguration.loadConfiguration(new File(dir, "parcels.yml"));
         s = y.getConfigurationSection("parcels");
         if (s != null) for (String key : s.getKeys(false)) {
@@ -114,6 +118,33 @@ final class DataStore {
                 plugin.getLogger().warning("Skipping broken parcel " + key + ": " + e);
             }
         }
+    }
+
+    void loadVillages() {
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(new File(dir, "villages.yml"));
+        villagesDone.addAll(y.getStringList("done"));
+        ConfigurationSection s = y.getConfigurationSection("offices");
+        if (s != null) for (String key : s.getKeys(false)) {
+            ConfigurationSection o = s.getConfigurationSection(key);
+            offices.put(o.getString("village"), new PostOffices.Office(o.getString("village"), o.getString("world"),
+                    o.getDouble("x"), o.getDouble("y"), o.getDouble("z"), (float) o.getDouble("yaw")));
+        }
+    }
+
+    void saveVillages() {
+        YamlConfiguration y = new YamlConfiguration();
+        y.set("done", new ArrayList<>(villagesDone));
+        int i = 0;
+        for (PostOffices.Office o : offices.values()) {
+            String p = "offices." + (i++) + ".";
+            y.set(p + "village", o.village());
+            y.set(p + "world", o.world());
+            y.set(p + "x", o.x());
+            y.set(p + "y", o.y());
+            y.set(p + "z", o.z());
+            y.set(p + "yaw", o.yaw());
+        }
+        write(new File(dir, "villages.yml"), y.saveToString());
     }
 
     // ---------------- mail helpers ----------------

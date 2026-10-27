@@ -16,6 +16,8 @@ public final class PostOfficePlugin extends JavaPlugin {
     private ChatPrompts prompts;
     private ResourcePack pack;
     private Recipes recipes;
+    private Traders traders;
+    private PostOffices offices;
 
     @Override
     public void onEnable() {
@@ -33,6 +35,8 @@ public final class PostOfficePlugin extends JavaPlugin {
         pack = new ResourcePack(this);
         recipes = new Recipes(this);
         recipes.register();
+        traders = new Traders(this);
+        offices = new PostOffices(this, store);
 
         var pm = Bukkit.getPluginManager();
         pm.registerEvents(new WorldListener(this), this);
@@ -41,6 +45,8 @@ public final class PostOfficePlugin extends JavaPlugin {
         pm.registerEvents(prompts, this);
         pm.registerEvents(pack, this);
         pm.registerEvents(recipes, this);
+        pm.registerEvents(traders, this);
+        pm.registerEvents(offices, this);
 
         PluginCommand cmd = getCommand("postoffice");
         if (cmd != null) {
@@ -52,6 +58,7 @@ public final class PostOfficePlugin extends JavaPlugin {
         pack.reload();
         post.start();
         parcels.start();
+        traders.start();
 
         // Leftover Postmen from a crash in already-loaded chunks; refresh displays near loaded blocks.
         Bukkit.getScheduler().runTask(this, () -> {
@@ -60,6 +67,7 @@ public final class PostOfficePlugin extends JavaPlugin {
             }
             for (PostBlock pb : blocks.all()) if (pb.isLoaded()) blocks.refresh(pb);
             for (PlacedParcel pp : parcels.all()) parcels.refresh(pp);
+            offices.scanLoaded();
         });
         getLogger().info("PostOffice ready: " + store.blocks.size() + " boxes, " + store.deliveries.size() + " letters/parcels in the post.");
     }
@@ -89,6 +97,10 @@ public final class PostOfficePlugin extends JavaPlugin {
 
     ChatPrompts prompts() {
         return prompts;
+    }
+
+    Traders traders() {
+        return traders;
     }
 
     ResourcePack pack() {

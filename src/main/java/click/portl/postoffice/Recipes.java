@@ -40,7 +40,7 @@ final class Recipes implements Listener {
 
         ShapelessRecipe letter = new ShapelessRecipe(Keys.RECIPE_LETTER, MailItems.blankLetter());
         letter.addIngredient(Material.PAPER);
-        letter.addIngredient(Material.BLACK_DYE);
+        letter.addIngredient(Material.INK_SAC);
 
         ShapedRecipe box = new ShapedRecipe(Keys.RECIPE_EMPTY_BOX, MailItems.create(MailKind.EMPTY_BOX));
         box.shape("PSP", "W W", "PSP");

@@ -66,22 +66,11 @@ final class WorldListener implements Listener {
                 if (onBlock) plugin.parcels().place(p, block, e.getBlockFace(), item, hand);
                 else Msg.send(p, "parcel.hint");
             }
-            case SEALED_LETTER -> {
+            case LETTER, SEALED_LETTER -> {
                 if (onBlock && !canPlaceHere) return;
                 e.setCancelled(true);
                 int slot = hand == EquipmentSlot.OFF_HAND ? 40 : p.getInventory().getHeldItemSlot();
-                new LetterMenus.Read(plugin, p, slot).open(p);
-            }
-            case LETTER -> {
-                if (!p.isSneaking()) return; // normal use: the book editor
-                e.setCancelled(true);
-                int slot = hand == EquipmentSlot.OFF_HAND ? 40 : p.getInventory().getHeldItemSlot();
-                // Next tick, so our menu replaces the book screen the client may already have opened.
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (MailItems.kind(p.getInventory().getItem(slot)) == MailKind.LETTER) {
-                        new LetterMenus.Attach(plugin, p, slot).open(p);
-                    }
-                });
+                LetterDialog.open(plugin, p, slot);
             }
             default -> {}
         }
