@@ -142,6 +142,53 @@ final class WorldListener implements Listener {
         });
     }
 
+    // ---------------- shaped hitboxes (invisible shulkers) ----------------
+
+    private boolean useHitbox(Player p, org.bukkit.entity.Entity hitbox, boolean attack) {
+        if (!Hitboxes.isHitbox(hitbox)) return false;
+        String blockId = Displays.tagOf(hitbox, Keys.BLOCK_ID);
+        String parcelId = Displays.tagOf(hitbox, Keys.PARCEL_ID);
+        try {
+            if (blockId != null) {
+                PostBlock pb = plugin.blocks().any(java.util.UUID.fromString(blockId));
+                if (pb == null) hitbox.remove();
+                else if (attack) plugin.blocks().tryBreak(p, pb);
+                else plugin.blocks().rightClick(p, pb, EquipmentSlot.HAND);
+            } else if (parcelId != null) {
+                PlacedParcel pp = plugin.parcels().byId(java.util.UUID.fromString(parcelId));
+                if (pp == null) hitbox.remove();
+                else if (attack) plugin.parcels().breakParcel(pp);
+                else plugin.parcels().rightClick(p, pp);
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        return true;
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onHitboxClick(org.bukkit.event.player.PlayerInteractEntityEvent e) {
+        if (!Hitboxes.isHitbox(e.getRightClicked())) return;
+        e.setCancelled(true);
+        if (e.getHand() == EquipmentSlot.HAND) useHitbox(e.getPlayer(), e.getRightClicked(), false);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onHitboxClickAt(org.bukkit.event.player.PlayerInteractAtEntityEvent e) {
+        if (Hitboxes.isHitbox(e.getRightClicked())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onHitboxAttack(io.papermc.paper.event.player.PrePlayerAttackEntityEvent e) {
+        if (!Hitboxes.isHitbox(e.getAttacked())) return;
+        e.setCancelled(true);
+        useHitbox(e.getPlayer(), e.getAttacked(), true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onHitboxDamage(org.bukkit.event.entity.EntityDamageEvent e) {
+        if (Hitboxes.isHitbox(e.getEntity())) e.setCancelled(true);
+    }
+
     /** Creative players break blocks instantly; treat it like the survival left-click. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onBreak(BlockBreakEvent e) {

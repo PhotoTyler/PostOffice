@@ -53,6 +53,11 @@ final class PostBlocks {
         return b == null ? null : byLoc.get(BlockKey.of(b));
     }
 
+    /** Any box (mailbox or drop-off) by id. */
+    PostBlock any(UUID id) {
+        return id == null ? null : store.blocks.get(id);
+    }
+
     PostBlock byId(UUID id) {
         PostBlock b = id == null ? null : store.blocks.get(id);
         return b != null && b.type.isMailbox() ? b : null;
@@ -129,7 +134,7 @@ final class PostBlocks {
             return false;
         }
         if (!claimBlock(p, target, clicked, hand, slot)) return false;
-        if (type == PostBlock.Type.DROPOFF) target.getRelative(BlockFace.UP).setType(Material.BARRIER, false);
+        target.setType(Material.AIR, false); // the shaped hitbox does the colliding
 
         String name;
         if (hand.getItemMeta().hasCustomName()) {
@@ -159,7 +164,6 @@ final class PostBlocks {
 
     /** A box the plugin builds itself (village Post Offices). */
     PostBlock placeSystem(PostBlock.Type type, Block target, float yaw, UUID owner, String name) {
-        for (int i = 0; i < (type == PostBlock.Type.DROPOFF ? 2 : 1); i++) target.getRelative(0, i, 0).setType(Material.BARRIER, false);
         PostBlock pb = new PostBlock(UUID.randomUUID(), type, owner, name, target.getWorld().getName(),
                 target.getX(), target.getY(), target.getZ(), yaw);
         store.blocks.put(pb.id, pb);
@@ -284,14 +288,20 @@ final class PostBlocks {
     void refresh(PostBlock pb) {
         if (!pb.isLoaded()) return;
         removeDisplays(pb, null);
+        // Older versions used barrier blocks; the shaped hitbox replaces them.
+        for (int i = 0; i < pb.height(); i++) {
+            Block part = pb.block().getRelative(0, i, 0);
+            if (part.getType() == Material.BARRIER) part.setType(Material.AIR, false);
+        }
         Displays.spawnModel(pb.center(), pb.type.kind.id, pb.yaw, Keys.BLOCK_ID, pb.id.toString(), "model");
+        Hitboxes.spawn(pb.center(), pb.yaw, pb.type.kind.id, Keys.BLOCK_ID, pb.id.toString());
         updateHologram(pb);
     }
 
     private List<Entity> displays(PostBlock pb) {
         List<Entity> out = new ArrayList<>();
         String id = pb.id.toString();
-        for (Entity e : pb.bukkitWorld().getNearbyEntities(pb.center(), 1.0, 2.0, 1.0)) {
+        for (Entity e : pb.bukkitWorld().getNearbyEntities(pb.center(), 1.0, 2.5, 1.0)) {
             if (id.equals(Displays.tagOf(e, Keys.BLOCK_ID))) out.add(e);
         }
         return out;

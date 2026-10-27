@@ -25,9 +25,10 @@ import org.joml.Vector3f;
  * Second right-click: take the contents and get the empty box back. Breaking it drops both.
  */
 final class Parcels {
-    private static final float OPEN_ANGLE = (float) Math.toRadians(-125);
-    // The flap model's hinge (outer top edge) in display space: 16 model units = 1 block, origin at the centre.
-    private static final Vector3f HINGE = new Vector3f(0f, 0.140625f, -0.375f);
+    private static final float OPEN_ANGLE = (float) Math.toRadians(125);
+    // The flap's hinge (its outer top edge) in display space: 16 model units = 1 block, origin at the
+    // centre. Item displays draw the model turned 180 degrees, so the flap's outer edge is at +z.
+    private static final Vector3f HINGE = new Vector3f(0f, 0.140625f, 0.375f);
 
     private final PostOfficePlugin plugin;
     private final DataStore store;
@@ -45,6 +46,10 @@ final class Parcels {
         Bukkit.getScheduler().runTaskTimer(plugin, this::spinTick, 20L, 10L);
     }
 
+    PlacedParcel byId(UUID id) {
+        return id == null ? null : store.parcels.get(id);
+    }
+
     PlacedParcel at(Block b) {
         return b == null ? null : byLoc.get(BlockKey.of(b));
     }
@@ -58,6 +63,7 @@ final class Parcels {
         if (payload == null) return false;
         Block target = PostBlocks.placeTarget(clicked, face);
         if (target == null || !PostBlocks.claimBlock(p, target, clicked, hand, slot)) return false;
+        target.setType(Material.AIR, false); // the shaped hitbox does the colliding
         PlacedParcel pp = new PlacedParcel(UUID.randomUUID(), target.getWorld().getName(), target.getX(), target.getY(),
                 target.getZ(), PostBlocks.snapYaw(p.getYaw()), payload, false);
         store.parcels.put(pp.id, pp);
@@ -133,7 +139,10 @@ final class Parcels {
     void refresh(PlacedParcel pp) {
         if (pp.bukkitWorld() == null || !pp.bukkitWorld().isChunkLoaded(pp.x >> 4, pp.z >> 4)) return;
         removeDisplays(pp, null);
+        Block old = pp.bukkitWorld().getBlockAt(pp.x, pp.y, pp.z);
+        if (old.getType() == Material.BARRIER) old.setType(Material.AIR, false);
         Location c = pp.center();
+        Hitboxes.spawn(c, pp.yaw, "parcel", Keys.PARCEL_ID, pp.id.toString());
         if (!pp.open) {
             Displays.spawnModel(c, "parcel_closed", pp.yaw, Keys.PARCEL_ID, pp.id.toString(), "box");
             return;
