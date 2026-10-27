@@ -118,7 +118,7 @@ final class PostService {
         if (!d.returning) {
             d.returning = true;
             Player s = Bukkit.getPlayer(d.sender);
-            if (s != null && !d.sender.equals(d.recipient)) Msg.send(s, "send.returning", "player", PostBlocks.nameOf(d.recipient));
+            if (s != null) Msg.send(s, "send.returning", "player", PostBlocks.nameOf(d.recipient));
             d.recipient = d.sender;
             List<PostBlock> mine = plugin.blocks().mailboxesOf(d.sender);
             if (!mine.isEmpty()) {
@@ -164,7 +164,7 @@ final class PostService {
             ItemStack item = ItemCodec.decode(d.item);
             if (item != null) drops.add(item);
             Player s = Bukkit.getPlayer(d.sender);
-            if (s != null && !d.sender.equals(d.recipient)) Msg.send(s, "send.stolen", "player", PostBlocks.nameOf(d.recipient));
+            if (s != null) Msg.send(s, "send.stolen", "player", PostBlocks.nameOf(d.recipient));
         }
         store.saveQueue();
         p.bag().clear();

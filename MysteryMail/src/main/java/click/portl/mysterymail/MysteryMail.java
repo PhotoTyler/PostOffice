@@ -1,6 +1,5 @@
 package click.portl.mysterymail;
 
-import click.portl.postoffice.PostOfficeAPI;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,6 +33,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
     private static final int PAGE_CHARS = 220; // roughly what fits on one book page
 
     private Jokes jokes;
+    private PostOfficeBridge post;
     private File dataFile;
     private final Map<UUID, Long> nextMail = new HashMap<>(); // real-time mode: when each player's next letter is due
     private final Map<String, Long> lastDay = new HashMap<>(); // minecraft-day mode: last day seen per world
@@ -42,6 +42,11 @@ public final class MysteryMail extends JavaPlugin implements Listener {
     public void onEnable() {
         saveDefaultConfig();
         jokes = new Jokes(this);
+        post = PostOfficeBridge.connect(this);
+        if (post == null) {
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
         dataFile = new File(getDataFolder(), "data.yml");
         YamlConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
         for (String key : data.getKeys(false)) {
@@ -56,7 +61,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
-        save();
+        if (post != null) save();
     }
 
     // ---------------- schedule ----------------
@@ -109,7 +114,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
 
     private void maybeSend(Player p) {
         if (!p.hasPermission("mysterymail.receive")) return;
-        if (!PostOfficeAPI.hasMailbox(p.getUniqueId())) return;
+        if (!post.hasMailbox(p.getUniqueId())) return;
         if (ThreadLocalRandom.current().nextDouble() >= getConfig().getDouble("schedule.chance", 1.0)) return;
         boolean parcel = ThreadLocalRandom.current().nextDouble() < getConfig().getDouble("parcel-chance", 0.08);
         send(p, parcel);
@@ -121,17 +126,18 @@ public final class MysteryMail extends JavaPlugin implements Listener {
     private void send(Player p, boolean parcel) {
         UUID id = p.getUniqueId();
         if (parcel) {
-            post(id, PostOfficeAPI.parcel(getConfig().getString("parcel.sender", "A Mystery Sender"), List.of(randomLoot())));
+            String from = getConfig().getString("parcel.sender", "A Mystery Sender");
+            post(id, from, post.parcel(from, List.of(randomLoot())));
             return;
         }
         String name = p.getName();
         String from = randomSender();
         jokes.next().thenAccept(joke -> Bukkit.getScheduler().runTask(this, () ->
-                post(id, PostOfficeAPI.letter(from, pages(name, from, joke)))));
+                post(id, from, post.letter(from, pages(name, from, joke)))));
     }
 
-    private void post(UUID player, ItemStack mail) {
-        if (!PostOfficeAPI.deliver(player, mail)) return;
+    private void post(UUID player, String from, ItemStack mail) {
+        if (!post.deliver(player, from, mail)) return;
         Player p = Bukkit.getPlayer(player);
         if (p != null) msg(p, "on-the-way");
     }
@@ -222,7 +228,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
                 msg(sender, "not-found", "player", args[1]);
                 return true;
             }
-            if (!PostOfficeAPI.hasMailbox(target.getUniqueId())) {
+            if (!post.hasMailbox(target.getUniqueId())) {
                 msg(sender, "no-mailbox", "player", target.getName());
                 return true;
             }

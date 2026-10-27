@@ -66,5 +66,5 @@ random item instead.
 - Players need a mailbox to get mystery mail.
 - `/mysterymail send <player> [letter|parcel]`, `/mysterymail joke`, `/mysterymail reload` (op).
 
-For other add-ons, `click.portl.postoffice.PostOfficeAPI` has `letter()`, `parcel()`,
-`hasMailbox()` and `deliver()`.
+MysteryMail is a single jar that works with PostOffice 1.8.2 as it is (no PostOffice update
+needed). The Postman collects mystery mail from the drop-off nearest the player's mailbox.
