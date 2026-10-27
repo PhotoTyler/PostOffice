@@ -64,6 +64,9 @@ random item instead.
 - `schedule.mode: real-time` = one every 30-45 minutes per player (default);
   `minecraft-day` = one every Minecraft morning.
 - Players need a mailbox to get mystery mail.
+- Getting rid of old mail: right-click a lit campfire, a torch, fire or lava with a letter or box
+  and it sizzles away into ash (anything inside pops out first). Letters and boxes also burn as
+  fuel in furnaces, smokers and blast furnaces.
 - `/mysterymail send <player> [letter|parcel]`, `/mysterymail joke`, `/mysterymail reload` (op).
 
 MysteryMail is a single jar that works with PostOffice 1.8.2 as it is (no PostOffice update

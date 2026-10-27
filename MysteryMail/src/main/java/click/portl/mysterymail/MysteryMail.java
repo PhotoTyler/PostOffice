@@ -63,6 +63,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
             }
         }
         getServer().getPluginManager().registerEvents(this, this);
+        getServer().getPluginManager().registerEvents(new Burning(this, post), this);
         Bukkit.getScheduler().runTaskTimer(this, this::tick, 200L, 100L);
         Bukkit.getScheduler().runTaskTimer(this, this::checkComing, 20L, 10L);
     }
@@ -303,7 +304,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
 
     // ---------------- misc ----------------
 
-    private void msg(CommandSender to, String key, String... placeholders) {
+    void msg(CommandSender to, String key, String... placeholders) {
         String text = getConfig().getString("messages." + key, "");
         if (text.isBlank()) return;
         TagResolver.Builder tags = TagResolver.builder();

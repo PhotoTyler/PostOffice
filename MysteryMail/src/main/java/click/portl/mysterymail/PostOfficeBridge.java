@@ -10,6 +10,9 @@ import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
@@ -29,6 +32,8 @@ final class PostOfficeBridge {
     private final Method mailboxesOf, sealedLetter, parcel, encode, postDelivery, isMailbox;
     private final Field fId, fType, fWorld, fX, fY, fZ;
     private final Constructor<?> delivery;
+    private final Method decode;
+    private Map<UUID, Integer> skipClick; // PostOffice's "ignore the next click from this player" map
 
     PostOfficeBridge(Plugin postOffice) throws ReflectiveOperationException {
         ClassLoader cl = postOffice.getClass().getClassLoader();
@@ -44,6 +49,7 @@ final class PostOfficeBridge {
         sealedLetter = open(mailItems.getDeclaredMethod("sealedLetter", List.class, String.class, ItemStack.class));
         parcel = open(mailItems.getDeclaredMethod("parcel", List.class, String.class));
         encode = open(Class.forName(pkg + "ItemCodec", true, cl).getDeclaredMethod("encode", ItemStack.class));
+        decode = open(Class.forName(pkg + "ItemCodec", true, cl).getDeclaredMethod("decode", String.class));
 
         Class<?> postBlock = Class.forName(pkg + "PostBlock", true, cl);
         fId = open(postBlock.getDeclaredField("id"));
@@ -63,6 +69,34 @@ final class PostOfficeBridge {
     private static <T extends java.lang.reflect.AccessibleObject> T open(T member) {
         member.setAccessible(true);
         return member;
+    }
+
+    ItemStack decode(String data) {
+        try {
+            return data == null ? null : (ItemStack) decode.invoke(null, data);
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Makes PostOffice ignore this player's click this tick (it doesn't skip cancelled clicks, so
+     * without this a burned envelope would still be opened or a box placed). Uses the same map
+     * PostOffice fills when a postbox hitbox is clicked.
+     */
+    @SuppressWarnings("unchecked")
+    void skipThisClick(Player p) {
+        try {
+            if (skipClick == null) {
+                for (RegisteredListener rl : PlayerInteractEvent.getHandlerList().getRegisteredListeners()) {
+                    Object l = rl.getListener();
+                    if (!l.getClass().getName().equals("click.portl.postoffice.WorldListener")) continue;
+                    skipClick = (Map<UUID, Integer>) open(l.getClass().getDeclaredField("lastHitboxClick")).get(l);
+                }
+            }
+            if (skipClick != null) skipClick.put(p.getUniqueId(), Bukkit.getCurrentTick());
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
 
     boolean hasMailbox(UUID player) {

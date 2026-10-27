@@ -113,12 +113,24 @@ parcel:
     - { item: ENDER_PEARL, min: 2, max: 4, weight: 4 }
     - { item: TOTEM_OF_UNDYING, min: 1, max: 1, weight: 1 }
 
+# Getting rid of old mail: right-click a lit campfire, a torch, fire or lava with a letter or box
+# and it burns away (anything inside pops out first). Letters and boxes also work as furnace fuel.
+burning:
+  enabled: true
+  furnace-fuel: true
+  # How long they burn in a furnace (200 ticks = smelts 1 item)
+  letter-fuel-ticks: 100
+  box-fuel-ticks: 300
+
 # The bell message plays when the Postman is this many blocks from the player's mailbox
 bell-distance: 10
 
 messages:
   # Shown (with a bell) when the Postman is nearly at the mailbox (blank = say nothing)
   on-the-way: "<gray><i>You hear a bicycle bell... the Postman is nearly at your mailbox!</i>"
+  burned: "<gray>The <item> sizzles away into ash."
+  burned-kept: "<gray>The <item> sizzles away into ash. <white>You kept what was inside."
+  fuel-not-empty: "<red>Take the things out first - this would burn them!"
   sent: "<green>Mystery <kind> sent to <player>."
   no-mailbox: "<red><player> doesn't have a mailbox."
   not-found: "<red>No online player called <player>."
