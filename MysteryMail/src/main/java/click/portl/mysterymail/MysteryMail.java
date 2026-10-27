@@ -13,12 +13,16 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -34,6 +38,9 @@ public final class MysteryMail extends JavaPlugin implements Listener {
 
     private Jokes jokes;
     private PostOfficeBridge post;
+    private static final NamespacedKey POSTMAN_TAG = new NamespacedKey("postoffice", "postman");
+    private record Coming(Location box, long expires) {}
+    private final Map<UUID, Coming> coming = new HashMap<>(); // mystery mail on its way: player -> their mailbox
     private File dataFile;
     private final Map<UUID, Long> nextMail = new HashMap<>(); // real-time mode: when each player's next letter is due
     private final Map<String, Long> lastDay = new HashMap<>(); // minecraft-day mode: last day seen per world
@@ -57,6 +64,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
         }
         getServer().getPluginManager().registerEvents(this, this);
         Bukkit.getScheduler().runTaskTimer(this, this::tick, 200L, 100L);
+        Bukkit.getScheduler().runTaskTimer(this, this::checkComing, 20L, 10L);
     }
 
     @Override
@@ -137,9 +145,30 @@ public final class MysteryMail extends JavaPlugin implements Listener {
     }
 
     private void post(UUID player, String from, ItemStack mail) {
-        if (!post.deliver(player, from, mail)) return;
-        Player p = Bukkit.getPlayer(player);
-        if (p != null) msg(p, "on-the-way");
+        Location box = post.deliver(player, from, mail);
+        if (box != null) coming.put(player, new Coming(box, System.currentTimeMillis() + 15 * 60_000L));
+    }
+
+    /** Rings the bell once the Postman is close to the mailbox, not when he sets off. */
+    private void checkComing() {
+        if (coming.isEmpty()) return;
+        double r = getConfig().getDouble("bell-distance", 10);
+        long now = System.currentTimeMillis();
+        coming.entrySet().removeIf(e -> {
+            Coming c = e.getValue();
+            if (now > c.expires() || !c.box().isWorldLoaded()) return true;
+            if (!c.box().isChunkLoaded()) return false;
+            for (Villager v : c.box().getNearbyEntitiesByType(Villager.class, r)) {
+                if (!v.getPersistentDataContainer().has(POSTMAN_TAG)) continue;
+                Player p = Bukkit.getPlayer(e.getKey());
+                if (p != null) {
+                    msg(p, "on-the-way");
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.8f, 1.8f);
+                }
+                return true;
+            }
+            return false;
+        });
     }
 
     private List<String> pages(String player, String sender, Jokes.Joke joke) {

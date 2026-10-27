@@ -107,9 +107,12 @@ parcel:
     - { item: ENDER_PEARL, min: 2, max: 4, weight: 4 }
     - { item: TOTEM_OF_UNDYING, min: 1, max: 1, weight: 1 }
 
+# The bell message plays when the Postman is this many blocks from the player's mailbox
+bell-distance: 10
+
 messages:
-  # Shown to the player when mystery mail is sent (blank = say nothing; PostOffice tells them when it arrives)
-  on-the-way: "<gray><i>You hear a bicycle bell in the distance... the Postman has something for you.</i>"
+  # Shown (with a bell) when the Postman is nearly at the mailbox (blank = say nothing)
+  on-the-way: "<gray><i>You hear a bicycle bell... the Postman is nearly at your mailbox!</i>"
   sent: "<green>Mystery <kind> sent to <player>."
   no-mailbox: "<red><player> doesn't have a mailbox."
   not-found: "<red>No online player called <player>."

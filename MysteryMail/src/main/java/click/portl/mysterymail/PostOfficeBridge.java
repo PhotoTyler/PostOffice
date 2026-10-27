@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
@@ -87,11 +89,11 @@ final class PostOfficeBridge {
         }
     }
 
-    /** Puts the mail in the post for this player's first mailbox. False if they have no mailbox. */
-    boolean deliver(UUID player, String from, ItemStack mail) {
+    /** Puts the mail in the post for this player's first mailbox. Returns that mailbox, or null if they have none. */
+    Location deliver(UUID player, String from, ItemStack mail) {
         try {
             List<?> boxes = (List<?>) mailboxesOf.invoke(blocks, player);
-            if (boxes.isEmpty()) return false;
+            if (boxes.isEmpty()) return null;
             Object box = boxes.getFirst();
             String world = (String) fWorld.get(box);
             int bx = fX.getInt(box), by = fY.getInt(box), bz = fZ.getInt(box);
@@ -112,7 +114,8 @@ final class PostOfficeBridge {
                     encode.invoke(null, mail), world, fX.getInt(origin), fY.getInt(origin), fZ.getInt(origin),
                     System.currentTimeMillis());
             postDelivery.invoke(post, d);
-            return true;
+            World w = Bukkit.getWorld(world);
+            return w == null ? null : new Location(w, bx + 0.5, by + 0.5, bz + 0.5);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
