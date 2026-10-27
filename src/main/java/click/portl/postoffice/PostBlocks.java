@@ -231,6 +231,10 @@ final class PostBlocks {
         if (pb.type == PostBlock.Type.DROPOFF) {
             ItemStack held = p.getInventory().getItem(hand);
             MailKind kind = MailItems.kind(held);
+            if (kind == MailKind.LETTER) {
+                Msg.send(p, "dropoff.seal-first"); // only letters in an envelope can be posted
+                return;
+            }
             if (kind == null || !kind.sendable()) {
                 Msg.send(p, "dropoff.hint");
                 return;

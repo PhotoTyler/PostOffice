@@ -171,6 +171,7 @@ messages:
     not-yours: "<gray>Only the person who placed this postbox can remove it."
     hint: "<gray>Hold a <white>letter</white> or <white>parcel</white> and right-click to post it."
     no-room: "<red>The postbox is two blocks tall - it needs space above."
+    seal-first: "<yellow>Put the letter in an envelope first: right-click it and press <white>Put in envelope</white>."
   send:
     title-players: "<dark_gray>Send to who?"
     title-mailboxes: "<dark_gray><player>'s mailboxes"

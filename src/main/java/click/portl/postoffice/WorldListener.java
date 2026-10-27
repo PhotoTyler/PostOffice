@@ -34,6 +34,14 @@ final class WorldListener implements Listener {
         Player p = e.getPlayer();
         Action action = e.getAction();
         Block block = e.getClickedBlock();
+        // Clicking a postbox/mailbox hitbox is followed by a separate "use item" from the client;
+        // ignore that one so it doesn't also open the envelope in your hand.
+        Integer hitboxTick = lastHitboxClick.get(p.getUniqueId());
+        if (hitboxTick != null && Bukkit.getCurrentTick() - hitboxTick <= 1
+                && (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK)) {
+            e.setCancelled(true);
+            return;
+        }
 
         PostBlock pb = plugin.blocks().at(block);
         PlacedParcel pp = pb == null ? plugin.parcels().at(block) : null;
@@ -150,8 +158,11 @@ final class WorldListener implements Listener {
 
     // ---------------- shaped hitboxes (invisible shulkers) ----------------
 
+    private final java.util.Map<java.util.UUID, Integer> lastHitboxClick = new java.util.HashMap<>();
+
     private boolean useHitbox(Player p, org.bukkit.entity.Entity hitbox, boolean attack) {
         if (!Hitboxes.isHitbox(hitbox)) return false;
+        if (!attack) lastHitboxClick.put(p.getUniqueId(), Bukkit.getCurrentTick());
         String blockId = Displays.tagOf(hitbox, Keys.BLOCK_ID);
         String parcelId = Displays.tagOf(hitbox, Keys.PARCEL_ID);
         try {
@@ -175,6 +186,7 @@ final class WorldListener implements Listener {
     public void onHitboxClick(org.bukkit.event.player.PlayerInteractEntityEvent e) {
         if (!Hitboxes.isHitbox(e.getRightClicked())) return;
         e.setCancelled(true);
+        lastHitboxClick.put(e.getPlayer().getUniqueId(), Bukkit.getCurrentTick()); // off-hand click too
         if (e.getHand() == EquipmentSlot.HAND) useHitbox(e.getPlayer(), e.getRightClicked(), false);
     }
 
