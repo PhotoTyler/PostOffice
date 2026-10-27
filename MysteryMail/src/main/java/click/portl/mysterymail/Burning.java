@@ -122,6 +122,7 @@ final class Burning implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onUse(PlayerInteractEvent e) {
+        if (e.useItemInHand() == org.bukkit.event.Event.Result.DENY) return; // another plugin handled it
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK && e.getAction() != Action.RIGHT_CLICK_AIR) return;
         if (!plugin.getConfig().getBoolean("burning.enabled", true)) return;
         Player p = e.getPlayer();
@@ -196,7 +197,7 @@ final class Burning implements Listener {
      * The game won't put paper in the fuel slot, so mail is placed there by hand. Letters put in the
      * top slot of a furnace become "Letters to Burn", which the furnace cooks into charcoal.
      */
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true) // e.g. StickyBags already put it in a bag
     public void onFurnaceClick(InventoryClickEvent e) {
         if (!(e.getView().getTopInventory() instanceof FurnaceInventory furnace)) return;
         Player p = (Player) e.getWhoClicked();
@@ -223,18 +224,12 @@ final class Burning implements Listener {
             return;
         }
         boolean fromCursor = raw < furnace.getSize();
+        ItemStack there = furnace.getItem(slot);
+        // Something else in the slot (a bag being hardened, logs, coal...): leave the click alone.
+        if (!fits(there, moving)) return;
         e.setCancelled(true);
         if (!insides(moving).isEmpty()) {
             plugin.msg(p, "fuel-not-empty");
-            return;
-        }
-        ItemStack there = furnace.getItem(slot);
-        if (!fits(there, moving)) {
-            if (!fromCursor) return;
-            // Something else already there: swap them, like the game does.
-            furnace.setItem(slot, fuelForm(moving, moving.getAmount()));
-            p.setItemOnCursor(there.clone());
-            track(furnace);
             return;
         }
         int have = there == null || there.isEmpty() ? 0 : there.getAmount();
