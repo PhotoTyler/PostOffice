@@ -53,21 +53,23 @@ final class PostOffices implements Listener {
     /** Building materials per village style. */
     private record Palette(Material pillar, Material wall, Material counter, Material stairs, Material roof,
                            Material slab, Material door, Material sign, Material foundation, Material floor,
-                           Material path) {}
+                           Material path, Material fence) {}
 
     private static final Palette PLAINS = new Palette(Material.OAK_LOG, Material.OAK_PLANKS, Material.STRIPPED_OAK_LOG,
             Material.OAK_STAIRS, Material.OAK_PLANKS, Material.OAK_SLAB, Material.OAK_DOOR, Material.OAK_WALL_SIGN,
-            Material.COBBLESTONE, Material.SPRUCE_PLANKS, Material.DIRT_PATH);
+            Material.COBBLESTONE, Material.SPRUCE_PLANKS, Material.DIRT_PATH, Material.OAK_FENCE);
     private static final Palette DESERT = new Palette(Material.CUT_SANDSTONE, Material.SMOOTH_SANDSTONE,
             Material.CUT_SANDSTONE, Material.SMOOTH_SANDSTONE_STAIRS, Material.SMOOTH_SANDSTONE,
             Material.SMOOTH_SANDSTONE_SLAB, Material.JUNGLE_DOOR, Material.JUNGLE_WALL_SIGN, Material.SANDSTONE,
-            Material.CUT_SANDSTONE, Material.SMOOTH_SANDSTONE);
+            Material.CUT_SANDSTONE, Material.SMOOTH_SANDSTONE, Material.JUNGLE_FENCE);
     private static final Palette SAVANNA = new Palette(Material.ACACIA_LOG, Material.ACACIA_PLANKS,
             Material.STRIPPED_ACACIA_LOG, Material.ACACIA_STAIRS, Material.ACACIA_PLANKS, Material.ACACIA_SLAB,
-            Material.ACACIA_DOOR, Material.ACACIA_WALL_SIGN, Material.COBBLESTONE, Material.OAK_PLANKS, Material.DIRT_PATH);
+            Material.ACACIA_DOOR, Material.ACACIA_WALL_SIGN, Material.COBBLESTONE, Material.OAK_PLANKS, Material.DIRT_PATH,
+            Material.ACACIA_FENCE);
     private static final Palette SPRUCE = new Palette(Material.SPRUCE_LOG, Material.SPRUCE_PLANKS,
             Material.STRIPPED_SPRUCE_LOG, Material.SPRUCE_STAIRS, Material.SPRUCE_PLANKS, Material.SPRUCE_SLAB,
-            Material.SPRUCE_DOOR, Material.SPRUCE_WALL_SIGN, Material.COBBLESTONE, Material.SPRUCE_PLANKS, Material.DIRT_PATH);
+            Material.SPRUCE_DOOR, Material.SPRUCE_WALL_SIGN, Material.COBBLESTONE, Material.SPRUCE_PLANKS, Material.DIRT_PATH,
+            Material.SPRUCE_FENCE);
 
     private final PostOfficePlugin plugin;
     private final DataStore store;
@@ -230,15 +232,8 @@ final class PostOffices implements Listener {
         }
 
         Block at(int lx, int y, int lz) {
-            int dx = lx - 4, dz = lz - 4;
-            int rx, rz;
-            switch (s.door) {
-                case NORTH -> { rx = -dx; rz = -dz; }
-                case EAST -> { rx = dz; rz = -dx; }
-                case WEST -> { rx = -dz; rz = dx; }
-                default -> { rx = dx; rz = dz; }
-            }
-            return w.getBlockAt(s.x0 + 4 + rx, s.ground + y, s.z0 + 4 + rz);
+            int[] r = rotate(lx - 4, lz - 4, s.door);
+            return w.getBlockAt(s.x0 + 4 + r[0], s.ground + y, s.z0 + 4 + r[1]);
         }
 
         BlockFace face(BlockFace local) {
@@ -286,7 +281,8 @@ final class PostOffices implements Listener {
             for (int i = 1; i <= 7; i++) {
                 for (int[] c : new int[][]{{i, 1}, {i, 7}, {1, i}, {7, i}}) {
                     boolean corner = (c[0] == 1 || c[0] == 7) && (c[1] == 1 || c[1] == 7);
-                    b.set(c[0], y, c[1], corner ? p.pillar : p.wall);
+                    // Post-office red band along the top of the walls, so it stands out
+                    b.set(c[0], y, c[1], corner ? p.pillar : y == 4 ? Material.RED_TERRACOTTA : p.wall);
                 }
             }
         }
@@ -326,9 +322,12 @@ final class PostOffices implements Listener {
                 }
             }
         }
-        Slab top = (Slab) p.slab.createBlockData();
-        top.setType(Slab.Type.BOTTOM);
-        b.set(4, 9, 4, top, false);
+        // A red flag on top of the roof
+        b.at(4, 9, 4).setType(p.fence, true);
+        b.at(4, 10, 4).setType(p.fence, true);
+        org.bukkit.block.data.Rotatable flag = (org.bukkit.block.data.Rotatable) Material.RED_BANNER.createBlockData();
+        flag.setRotation(b.face(BlockFace.SOUTH));
+        b.set(4, 11, 4, flag, false);
 
         // Counter either side of the drop-off, a bookshelf, a lamp and a red carpet to the door
         for (int lx : new int[]{2, 3, 5, 6}) b.set(lx, 1, 3, p.counter);
@@ -341,6 +340,20 @@ final class PostOffices implements Listener {
         b.set(4, 4, 5, lamp, false);
         b.set(2, 4, 2, lamp.clone(), false);
 
+        // Outside: a red awning over the door, a lantern post and a postbox by the door
+        for (int lx = 3; lx <= 5; lx++) {
+            Stairs awning = (Stairs) Material.RED_NETHER_BRICK_STAIRS.createBlockData();
+            awning.setFacing(b.face(BlockFace.NORTH));
+            awning.setHalf(Bisected.Half.TOP);
+            b.set(lx, 4, 8, awning, false);
+        }
+        b.at(2, 1, 8).setType(p.fence, true);
+        b.set(2, 2, 8, Material.LANTERN.createBlockData(), false);
+        for (int lx : new int[]{1, 7}) {
+            b.set(lx, 0, 8, Material.GRASS_BLOCK);
+            b.set(lx, 1, 8, Material.RED_TULIP);
+        }
+
         // "POST OFFICE" sign over the door, outside
         BlockData signData = p.sign.createBlockData();
         ((Directional) signData).setFacing(b.face(BlockFace.SOUTH));
@@ -349,14 +362,16 @@ final class PostOffices implements Listener {
         if (signBlock.getState() instanceof Sign sign) {
             List<String> lines = plugin.getConfig().getStringList("post-offices.sign");
             for (int i = 0; i < 4 && i < lines.size(); i++) sign.getSide(Side.FRONT).line(i, Msg.parse(lines.get(i)));
+            sign.getSide(Side.FRONT).setColor(org.bukkit.DyeColor.RED);
             sign.setWaxed(true);
             sign.update(true, false);
         }
 
-        // The public drop-off, facing the door
+        // The public drop-offs: one at the counter facing the door, and a pillar box outside
         float yaw = yawOf(b.face(BlockFace.SOUTH));
         Block dropBlock = b.at(4, 1, 2);
         PostBlock drop = plugin.blocks().placeSystem(PostBlock.Type.DROPOFF, dropBlock, yaw, SERVER, "Post Office");
+        plugin.blocks().placeSystem(PostBlock.Type.DROPOFF, b.at(6, 1, 8), yaw, SERVER, "Post Office");
 
         // The Postmaster behind the counter
         Block clerkBlock = b.at(2, 1, 2);
@@ -366,6 +381,63 @@ final class PostOffices implements Listener {
 
         plugin.getLogger().info("Built a Post Office in village " + id + " at " + dropBlock.getX() + ", "
                 + dropBlock.getY() + ", " + dropBlock.getZ() + (drop == null ? " (drop-off failed)" : ""));
+    }
+
+    /** Rebuilds the Post Office closest to {@code near} with the current design. */
+    boolean rebuildNearest(Location near, double maxDistance) {
+        Office best = null;
+        double bestDist = maxDistance * maxDistance;
+        for (Office o : store.offices.values()) {
+            if (!o.world().equals(near.getWorld().getName())) continue;
+            double d = dist2(o.x(), o.z(), near.getX(), near.getZ());
+            if (d < bestDist) {
+                bestDist = d;
+                best = o;
+            }
+        }
+        if (best == null) return false;
+        rebuild(best);
+        return true;
+    }
+
+    private void rebuild(Office o) {
+        World w = Bukkit.getWorld(o.world());
+        if (w == null) return;
+        BlockFace door = switch (Math.round(((o.yaw() % 360) + 360) % 360)) {
+            case 90 -> BlockFace.WEST;
+            case 180 -> BlockFace.NORTH;
+            case 270 -> BlockFace.EAST;
+            default -> BlockFace.SOUTH;
+        };
+        // The Postmaster stands at local (2, 2): work back to the site corner from there.
+        int cx = (int) Math.floor(o.x()), cz = (int) Math.floor(o.z());
+        int[] r = rotate(-2, -2, door);
+        Site site = new Site(cx - 4 - r[0], cz - 4 - r[1], (int) Math.round(o.y()) - 1, door);
+        Builder b = new Builder(w, site);
+
+        // Take out the old postboxes and the Postmaster
+        for (int lx = 0; lx <= 8; lx++) for (int lz = 0; lz <= 8; lz++) for (int y = 1; y <= 2; y++) {
+            PostBlock pb = plugin.blocks().at(b.at(lx, y, lz));
+            if (pb != null && pb.owner.equals(SERVER)) plugin.blocks().remove(pb);
+        }
+        for (Entity e : w.getNearbyEntities(new Location(w, o.x(), o.y(), o.z()), 6, 6, 6)) {
+            if (o.village().equals(e.getPersistentDataContainer().get(Keys.CLERK, PersistentDataType.STRING))) {
+                for (Entity passenger : e.getPassengers()) passenger.remove();
+                e.remove();
+            }
+        }
+        store.offices.remove(o.village());
+        build(w, o.village(), site, paletteFor(o.village()));
+        store.saveVillages();
+    }
+
+    private static int[] rotate(int dx, int dz, BlockFace door) {
+        return switch (door) {
+            case NORTH -> new int[]{-dx, -dz};
+            case EAST -> new int[]{dz, -dx};
+            case WEST -> new int[]{-dz, dx};
+            default -> new int[]{dx, dz};
+        };
     }
 
     static float yawOf(BlockFace f) {

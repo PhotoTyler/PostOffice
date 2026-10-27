@@ -37,6 +37,20 @@ jobs:
           <p>PostOffice resource pack: <a href="PostOffice-pack.zip">PostOffice-pack.zip</a>
           (<a href="PostOffice-pack.sha1">sha1</a>)</p>
           EOF
+      # Some hosts (e.g. MineKeep) only let servers send packs from raw.githubusercontent.com,
+      # so the zip is also force-pushed to the "pack" branch.
+      - name: Publish pack to the pack branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir packbranch
+          cp build/PostOffice-pack.zip site/PostOffice-pack.sha1 packbranch/
+          cd packbranch
+          git init -q -b pack
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Texture pack from ${GITHUB_SHA::7}"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" pack
       - uses: actions/upload-artifact@v4
         with:
           name: PostOffice

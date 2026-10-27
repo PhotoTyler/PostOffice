@@ -2,7 +2,8 @@
 
 resource-pack:
   # Where players download the textures from (the zip built by GitHub Actions and hosted on GitHub Pages).
-  url: "https://phototyler.github.io/PostOffice/PostOffice-pack.zip"
+  # raw.githubusercontent.com works on hosts that block other pack sites (like MineKeep).
+  url: "https://raw.githubusercontent.com/PhotoTyler/PostOffice/pack/PostOffice-pack.zip"
   # Leave empty: the plugin downloads the pack at startup / on /postoffice reload and works out the hash itself.
   sha1: ""
   send-on-join: true
@@ -50,9 +51,10 @@ post-offices:
   worlds: []
   clerk-name: "<gold>Postmaster"
   sign:
-    - "<bold>POST OFFICE"
     - "✉"
-    - "Letters & Parcels"
+    - "<bold>POST OFFICE"
+    - "Letters"
+    - "& Parcels"
   clerk-dialogue:
     - "Welcome to the Post Office! Use the red postbox to send a letter or parcel."
     - "Need a mailbox? Craft one with iron, dye and a chest, then place it at home."
@@ -198,6 +200,8 @@ messages:
     list-line: "<white><mailbox></white> <gray>- <count> waiting - <location>"
     given: "<green>Gave <count>x <item> to <player>."
     reloaded: "<green>PostOffice reloaded."
+    rebuilt: "<green>Rebuilt the nearest Post Office with the latest design."
+    no-office: "<red>There's no Post Office within 64 blocks."
     items-title: "<dark_gray>PostOffice items <gray>(shift = stack)"
     status: "<gray>Postmen out: <white><postmen></white>, mail in the post: <white><queued></white>"
     help:
@@ -208,4 +212,5 @@ messages:
       - "<yellow>Drop-off</yellow>: right-click with mail to send it."
       - "<gray>/postoffice list</gray> - your mailboxes"
       - "<gray>/postoffice pack</gray> - re-send the texture pack"
+      - "<gray>/postoffice rebuild</gray> - (ops) rebuild the nearest Post Office in the latest style"
       - "<gray>/postoffice items</gray> - all PostOffice items (creative mode or ops)"

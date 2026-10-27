@@ -87,6 +87,15 @@ final class PostCommand implements TabExecutor {
                 plugin.pack().reload();
                 Msg.send(sender, "command.reloaded");
             }
+            case "rebuild" -> {
+                if (!sender.hasPermission("postoffice.admin")) {
+                    Msg.send(sender, "no-permission");
+                    return true;
+                }
+                if (!(sender instanceof Player p)) return true;
+                if (plugin.offices().rebuildNearest(p.getLocation(), 64)) Msg.send(p, "command.rebuilt");
+                else Msg.send(p, "command.no-office");
+            }
             case "status" -> {
                 if (!sender.hasPermission("postoffice.admin")) {
                     Msg.send(sender, "no-permission");
@@ -107,7 +116,7 @@ final class PostCommand implements TabExecutor {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
             out.addAll(List.of("help", "list", "pack", "items"));
-            if (sender.hasPermission("postoffice.admin")) out.addAll(List.of("give", "reload", "status"));
+            if (sender.hasPermission("postoffice.admin")) out.addAll(List.of("give", "reload", "status", "rebuild"));
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give") && sender.hasPermission("postoffice.admin")) {
             out.addAll(GIVEABLE);
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {

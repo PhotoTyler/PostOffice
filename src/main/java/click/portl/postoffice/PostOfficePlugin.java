@@ -99,6 +99,10 @@ public final class PostOfficePlugin extends JavaPlugin {
         return prompts;
     }
 
+    PostOffices offices() {
+        return offices;
+    }
+
     Traders traders() {
         return traders;
     }

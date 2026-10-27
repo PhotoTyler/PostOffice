@@ -27,16 +27,18 @@ final class ResourcePack implements Listener {
     private volatile String url = "";
     private volatile String hash = "";
     private volatile String problem; // why the pack can't be downloaded, shown to ops on join
-    // Early builds pointed here, but the pack is actually served from github.io.
-    private static final String OLD_URL = "https://portl.click/PostOffice/PostOffice-pack.zip";
-    static final String DEFAULT_URL = "https://phototyler.github.io/PostOffice/PostOffice-pack.zip";
+    // Earlier defaults. github.io is blocked by some hosts (MineKeep), raw.githubusercontent.com isn't.
+    private static final java.util.List<String> OLD_URLS = java.util.List.of(
+            "https://portl.click/PostOffice/PostOffice-pack.zip",
+            "https://phototyler.github.io/PostOffice/PostOffice-pack.zip");
+    static final String DEFAULT_URL = "https://raw.githubusercontent.com/PhotoTyler/PostOffice/pack/PostOffice-pack.zip";
 
     ResourcePack(PostOfficePlugin plugin) {
         this.plugin = plugin;
     }
 
     void reload() {
-        if (OLD_URL.equals(plugin.getConfig().getString("resource-pack.url", "").trim())) {
+        if (OLD_URLS.contains(plugin.getConfig().getString("resource-pack.url", "").trim())) {
             plugin.getConfig().set("resource-pack.url", DEFAULT_URL);
             plugin.saveConfig();
             plugin.getLogger().info("Updated resource-pack.url to " + DEFAULT_URL);
@@ -54,7 +56,8 @@ final class ResourcePack implements Listener {
             try {
                 HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL)
                         .connectTimeout(Duration.ofSeconds(15)).build();
-                HttpResponse<InputStream> res = client.send(HttpRequest.newBuilder(URI.create(target))
+                String fresh = target + (target.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis();
+                HttpResponse<InputStream> res = client.send(HttpRequest.newBuilder(URI.create(fresh))
                         .header("Cache-Control", "no-cache").timeout(Duration.ofSeconds(60)).build(),
                         HttpResponse.BodyHandlers.ofInputStream());
                 if (res.statusCode() != 200) throw new IllegalStateException("HTTP " + res.statusCode() + " from " + target);
@@ -79,7 +82,9 @@ final class ResourcePack implements Listener {
     void send(Player p) {
         if (url.isEmpty()) return;
         UUID id = UUID.nameUUIDFromBytes(("postoffice:" + url).getBytes(StandardCharsets.UTF_8));
-        ResourcePackInfo info = ResourcePackInfo.resourcePackInfo(id, URI.create(url), hash);
+        // "?v=<hash>" makes caches hand out exactly the version we hashed.
+        String sendUrl = hash.isEmpty() ? url : url + (url.contains("?") ? "&" : "?") + "v=" + hash;
+        ResourcePackInfo info = ResourcePackInfo.resourcePackInfo(id, URI.create(sendUrl), hash);
         p.sendResourcePacks(ResourcePackRequest.resourcePackRequest()
                 .packs(info)
                 .required(plugin.getConfig().getBoolean("resource-pack.required", false))

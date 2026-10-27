@@ -313,7 +313,7 @@ CAP_FRONT = [
     "gggggggggggggggg",
     "GGGGGGGGGGGGGGGG",
 ]
-CAP_PAL = {"n": hexc("1b2a4a"), "g": hexc("d4af37"), "G": hexc("a8862a"), "y": hexc("f3d36b")}
+CAP_PAL = {"n": hexc("2a4d8f"), "g": hexc("d4af37"), "G": hexc("a8862a"), "y": hexc("f3d36b")}
 
 
 # ---------------------------------------------------------------- Postman villager skin
@@ -322,10 +322,10 @@ def postman_skin():
     """64x64 villager profession overlay (replaces the nitwit outfit): navy uniform, red collar,
     gold buttons, brown belt and mail bag. Transparent areas show the villager's own skin."""
     img = [[CLEAR] * 64 for _ in range(64)]
-    navy, navy_d = hexc("1b2a4a"), hexc("142038")
+    navy, navy_d = hexc("2a4d8f"), hexc("1f3a6e")
     gold, red = hexc("d4af37"), hexc("c8102e")
     brown, brown_d = hexc("8b5a2b"), hexc("5e3a1a")
-    trousers, shoes = hexc("232a3d"), hexc("161616")
+    trousers, shoes = hexc("1c2c4f"), hexc("161616")
     rnd = random.Random(42)
 
     def rect(x0, y0, x1, y1, c, jitter=0.04):
