@@ -118,6 +118,8 @@ parcel:
 burning:
   enabled: true
   furnace-fuel: true
+  # Letters put in the top slot of a furnace cook into charcoal
+  letters-to-charcoal: true
   # How long they burn in a furnace (200 ticks = smelts 1 item)
   letter-fuel-ticks: 100
   box-fuel-ticks: 300

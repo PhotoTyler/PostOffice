@@ -26,6 +26,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.BlastingRecipe;
@@ -35,6 +37,7 @@ import org.bukkit.inventory.FurnaceInventory;
 import org.bukkit.inventory.FurnaceRecipe;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
+import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.SmokingRecipe;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -55,6 +58,7 @@ final class Burning implements Listener {
     private static final NamespacedKey PAYLOAD = new NamespacedKey("postoffice", "payload");
     private static final NamespacedKey ATTACHMENT = new NamespacedKey("postoffice", "attachment");
     private static final NamespacedKey FUEL = new NamespacedKey("mysterymail", "fuel");
+    static final NamespacedKey CHARCOAL_RECIPE = new NamespacedKey("mysterymail", "letters_to_charcoal");
     private static final Set<String> BURNABLE = Set.of("letter", "sealed_letter", "parcel", "empty_box");
 
     private final MysteryMail plugin;
@@ -188,47 +192,90 @@ final class Burning implements Listener {
                 kind.contains("letter") ? 100 : 300);
     }
 
-    /** The game won't put paper in the fuel slot, so mail is placed there by hand. */
+    /**
+     * The game won't put paper in the fuel slot, so mail is placed there by hand. Letters put in the
+     * top slot of a furnace become "Letters to Burn", which the furnace cooks into charcoal.
+     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onFurnaceClick(InventoryClickEvent e) {
         if (!(e.getView().getTopInventory() instanceof FurnaceInventory furnace)) return;
-        if (!plugin.getConfig().getBoolean("burning.furnace-fuel", true)) return;
         Player p = (Player) e.getWhoClicked();
         int raw = e.getRawSlot();
-        boolean intoFuel = raw == 1 && (e.getClick() == ClickType.LEFT || e.getClick() == ClickType.RIGHT)
-                && kind(e.getCursor()) != null;
-        boolean shift = e.isShiftClick() && raw >= furnace.getSize() && kind(e.getCurrentItem()) != null;
-        if (!intoFuel && !shift) {
+        boolean click = e.getClick() == ClickType.LEFT || e.getClick() == ClickType.RIGHT;
+        boolean fuelOn = plugin.getConfig().getBoolean("burning.furnace-fuel", true);
+        boolean charcoal = charcoalOn() && furnace.getType() == InventoryType.FURNACE;
+        int slot = -1;
+        ItemStack moving = null;
+        if (click && raw == 0 && charcoal && isLetter(e.getCursor())) {
+            slot = 0;
+            moving = e.getCursor();
+        } else if (click && raw == 1 && fuelOn && kind(e.getCursor()) != null) {
+            slot = 1;
+            moving = e.getCursor();
+        } else if (e.isShiftClick() && raw >= furnace.getSize() && kind(e.getCurrentItem()) != null) {
+            moving = e.getCurrentItem();
+            // Like logs: letters go to the top to be cooked, otherwise they're fuel.
+            if (charcoal && isLetter(moving) && fits(furnace.getItem(0), moving)) slot = 0;
+            else if (fuelOn) slot = 1;
+        }
+        if (slot < 0) {
             Bukkit.getScheduler().runTask(plugin, () -> track(furnace));
             return;
         }
-        ItemStack moving = intoFuel ? e.getCursor() : e.getCurrentItem();
+        boolean fromCursor = raw < furnace.getSize();
         e.setCancelled(true);
         if (!insides(moving).isEmpty()) {
             plugin.msg(p, "fuel-not-empty");
             return;
         }
-        ItemStack fuel = furnace.getFuel();
-        ItemStack form = fuelForm(moving, 1);
-        int room;
-        if (fuel == null || fuel.isEmpty()) room = form.getMaxStackSize();
-        else if (fuel.isSimilar(form)) room = fuel.getMaxStackSize() - fuel.getAmount();
-        else if (intoFuel) {
-            // Different fuel already there: swap them, like the game does.
-            ItemStack old = fuel.clone();
-            furnace.setFuel(fuelForm(moving, moving.getAmount()));
-            p.setItemOnCursor(old);
+        ItemStack there = furnace.getItem(slot);
+        if (!fits(there, moving)) {
+            if (!fromCursor) return;
+            // Something else already there: swap them, like the game does.
+            furnace.setItem(slot, fuelForm(moving, moving.getAmount()));
+            p.setItemOnCursor(there.clone());
             track(furnace);
             return;
-        } else return;
-        int n = Math.min(room, intoFuel && e.getClick() == ClickType.RIGHT ? 1 : moving.getAmount());
+        }
+        int have = there == null || there.isEmpty() ? 0 : there.getAmount();
+        int n = Math.min(64 - have, fromCursor && e.getClick() == ClickType.RIGHT ? 1 : moving.getAmount());
         if (n <= 0) return;
-        furnace.setFuel(fuelForm(moving, (fuel == null || fuel.isEmpty() ? 0 : fuel.getAmount()) + n));
+        furnace.setItem(slot, fuelForm(moving, have + n));
         ItemStack left = moving.clone();
         left.setAmount(moving.getAmount() - n);
-        if (intoFuel) p.setItemOnCursor(left.getAmount() > 0 ? left : null);
+        if (fromCursor) p.setItemOnCursor(left.getAmount() > 0 ? left : null);
         else e.setCurrentItem(left.getAmount() > 0 ? left : null);
         track(furnace);
+    }
+
+    /** Can this mail go on top of what's in the slot (empty, or the same kind of "to burn" stack)? */
+    private static boolean fits(ItemStack there, ItemStack mail) {
+        return there == null || there.isEmpty() || (there.isSimilar(fuelForm(mail, 1)) && there.getAmount() < 64);
+    }
+
+    private static boolean isLetter(ItemStack item) {
+        String k = kind(item);
+        return k != null && k.contains("letter");
+    }
+
+    private boolean charcoalOn() {
+        return plugin.getConfig().getBoolean("burning.letters-to-charcoal", true);
+    }
+
+    /** Hoppers feeding letters into a furnace: they become "Letters to Burn" on the way in. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onHopper(InventoryMoveItemEvent e) {
+        if (!(e.getDestination() instanceof FurnaceInventory f) || f.getType() != InventoryType.FURNACE) return;
+        if (!charcoalOn() || !isLetter(e.getItem()) || !insides(e.getItem()).isEmpty()) return;
+        e.setItem(fuelForm(e.getItem(), e.getItem().getAmount()));
+    }
+
+    /** Furnace recipe: "Letters to Burn" -> charcoal. */
+    static FurnaceRecipe charcoalRecipe() {
+        ItemStack letters = new ItemStack(Material.PAPER);
+        letters.editMeta(m -> m.getPersistentDataContainer().set(TYPE, PersistentDataType.STRING, "sealed_letter"));
+        return new FurnaceRecipe(CHARCOAL_RECIPE, new ItemStack(Material.CHARCOAL),
+                RecipeChoice.exactChoice(fuelForm(letters, 1)), 0.1f, 200);
     }
 
     @EventHandler

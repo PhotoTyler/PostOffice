@@ -64,12 +64,14 @@ public final class MysteryMail extends JavaPlugin implements Listener {
         }
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new Burning(this, post), this);
+        Bukkit.addRecipe(Burning.charcoalRecipe());
         Bukkit.getScheduler().runTaskTimer(this, this::tick, 200L, 100L);
         Bukkit.getScheduler().runTaskTimer(this, this::checkComing, 20L, 10L);
     }
 
     @Override
     public void onDisable() {
+        Bukkit.removeRecipe(Burning.CHARCOAL_RECIPE);
         if (post != null) save();
     }
 
