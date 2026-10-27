@@ -133,7 +133,7 @@ items:
       - "<gray>Place it, then right-click with items"
       - "<gray>to pack it (up to 8 stacks)."
       - "<gray>Sneak + right-click to seal it."
-      - "<gray>Or craft it in the middle of up to 8 stacks."
+      - "<gray>Or craft it with up to 8 stacks (any layout)."
   mailbox_uk:
     name: "<red>Wall Mailbox"
     lore:
@@ -235,7 +235,6 @@ messages:
     added: "<green>Packed <white><count>x <item></white> <gray>(<used>/<max>)"
     took: "<yellow>Took out <white><count>x <item></white>."
     empty: "<gray>The box is empty. Break it to pick it up."
-    empty-seal: "<yellow>Put something in the box before sealing it."
     sealed: "<green>Box sealed! Break it to pick it up as a parcel."
     not-allowed: "<red>That can't go in a box (no shulker boxes, bundles or other mail)."
     full-message: "<red>The box is full - 8 stacks is the most it holds."
@@ -252,7 +251,7 @@ messages:
     help:
       - "<gold>PostOffice</gold>"
       - "<yellow>Letter</yellow>: paper + ink sac. Right-click to write, sneak + right-click to attach an item, then Put in envelope."
-      - "<yellow>Parcel</yellow>: Empty Box in the middle of up to 8 stacks, or place the box and fill it."
+      - "<yellow>Parcel</yellow>: Empty Box + up to 8 stacks in any layout, or place the box and fill it."
       - "<yellow>Mailbox</yellow>: place it to receive mail. Right-click to collect."
       - "<yellow>Drop-off</yellow>: right-click with mail to send it."
       - "<gray>/postoffice list</gray> - your mailboxes"

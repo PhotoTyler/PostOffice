@@ -152,11 +152,7 @@ final class Parcels {
     }
 
     private void seal(Player p, PlacedParcel pp) {
-        if (pp.contents.isEmpty()) {
-            Msg.send(p, "parcel.empty-seal");
-            return;
-        }
-        pp.open = false;
+        pp.open = false; // empty boxes can be sealed too
         pp.sender = null; // repacked: whoever posts it names it again
         store.saveParcels();
         removeDisplays(pp, "payload");

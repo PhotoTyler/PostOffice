@@ -90,15 +90,27 @@ final class Recipes implements Listener {
         return r instanceof Keyed k ? k.getKey() : null;
     }
 
+    /** Slot of the single Empty Box in the grid, or -1. */
+    private static int boxSlot(ItemStack[] matrix) {
+        int found = -1;
+        for (int i = 0; i < matrix.length; i++) {
+            if (MailItems.kind(matrix[i]) != MailKind.EMPTY_BOX) continue;
+            if (found != -1) return -1;
+            found = i;
+        }
+        return found;
+    }
+
     /**
-     * Packing: an Empty Box in the middle of the crafting table with 1-8 item stacks around it.
-     * Returns the parcel, or null if the grid isn't that pattern.
+     * Packing (shapeless): an Empty Box anywhere in the grid with 1-8 item stacks in the other slots.
+     * Returns the parcel, or null if the grid isn't that.
      */
     private static ItemStack packedParcel(ItemStack[] matrix) {
-        if (matrix.length != 9 || MailItems.kind(matrix[4]) != MailKind.EMPTY_BOX) return null;
+        int box = boxSlot(matrix);
+        if (box < 0) return null;
         List<ItemStack> contents = new java.util.ArrayList<>();
-        for (int i = 0; i < 9; i++) {
-            if (i == 4 || ItemCodec.isEmpty(matrix[i])) continue;
+        for (int i = 0; i < matrix.length; i++) {
+            if (i == box || ItemCodec.isEmpty(matrix[i])) continue;
             if (!MailItems.allowedInParcel(matrix[i])) return null;
             contents.add(matrix[i].clone());
         }
@@ -142,11 +154,12 @@ final class Recipes implements Listener {
         } else {
             return;
         }
-        for (int i = 0; i < 9; i++) {
-            if (i == 4) {
-                int left = matrix[4].getAmount() - 1;
-                if (left <= 0) matrix[4] = null;
-                else matrix[4].setAmount(left);
+        int box = boxSlot(matrix);
+        for (int i = 0; i < matrix.length; i++) {
+            if (i == box) {
+                int left = matrix[i].getAmount() - 1;
+                if (left <= 0) matrix[i] = null;
+                else matrix[i].setAmount(left);
             } else {
                 matrix[i] = null;
             }
