@@ -117,6 +117,7 @@ final class DataStore {
                 parcels.put(UUID.fromString(key), new PlacedParcel(UUID.fromString(key), p.getString("world"),
                         p.getInt("x"), p.getInt("y"), p.getInt("z"), (float) p.getDouble("yaw"),
                         contents, p.getBoolean("open")));
+                parcels.get(UUID.fromString(key)).sender = p.getString("sender");
             } catch (RuntimeException e) {
                 plugin.getLogger().warning("Skipping broken parcel " + key + ": " + e);
             }
@@ -250,6 +251,7 @@ final class DataStore {
             y.set(k + "z", p.z);
             y.set(k + "yaw", p.yaw);
             y.set(k + "contents", new ArrayList<>(p.contents));
+            y.set(k + "sender", p.sender);
             y.set(k + "open", p.open);
         }
         write(new File(dir, "parcels.yml"), y.saveToString());

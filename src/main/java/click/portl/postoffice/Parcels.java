@@ -83,6 +83,7 @@ final class Parcels {
         List<String> contents = kind == MailKind.PARCEL ? MailItems.contentsData(hand) : List.of();
         PlacedParcel pp = new PlacedParcel(UUID.randomUUID(), target.getWorld().getName(), target.getX(), target.getY(),
                 target.getZ(), PostBlocks.snapYaw(p.getYaw()), contents, kind == MailKind.EMPTY_BOX);
+        if (kind == MailKind.PARCEL) pp.sender = MailItems.sender(hand);
         store.parcels.put(pp.id, pp);
         byLoc.put(pp.key(), pp);
         store.saveParcels();
@@ -96,6 +97,10 @@ final class Parcels {
     void rightClick(Player p, PlacedParcel pp) {
         if (!pp.open) {
             open(pp);
+            if (pp.sender != null) {
+                Msg.send(p, "parcel.from", "sender", pp.sender);
+                showSender(pp);
+            }
             return;
         }
         if (p.isSneaking()) {
@@ -206,7 +211,7 @@ final class Parcels {
         boolean sealed = !pp.open;
         remove(pp);
         if (sealed) {
-            c.getWorld().dropItemNaturally(c, MailItems.parcel(items, null));
+            c.getWorld().dropItemNaturally(c, MailItems.parcel(items, pp.sender));
         } else {
             for (ItemStack it : items) c.getWorld().dropItemNaturally(c, it);
             c.getWorld().dropItemNaturally(c, MailItems.create(MailKind.EMPTY_BOX));
@@ -252,6 +257,19 @@ final class Parcels {
         payloadDisplays.remove(pp.id);
         if (pp.open && !pp.contents.isEmpty()) spawnPayload(pp, true);
         updateFullSign(pp);
+    }
+
+    /** A "From: <sender>" label over the box for a few seconds after it's opened. */
+    private void showSender(PlacedParcel pp) {
+        Location at = pp.center().add(0, 1.25, 0);
+        TextDisplay label = at.getWorld().spawn(at, TextDisplay.class, t -> {
+            t.text(Msg.get("parcel.from-label", "sender", pp.sender));
+            t.setBillboard(Display.Billboard.CENTER);
+            t.setShadowed(true);
+            t.setPersistent(false);
+            Displays.tag(t, Keys.PARCEL_ID, pp.id.toString(), "from");
+        });
+        Bukkit.getScheduler().runTaskLater(plugin, label::remove, 100L);
     }
 
     private void updateFullSign(PlacedParcel pp) {

@@ -15,6 +15,7 @@ final class PlacedParcel {
     final float yaw;
     final List<String> contents; // Base64 item stacks, at most Parcels.MAX
     boolean open;
+    String sender;               // who posted it (null for a box someone packed here)
 
     PlacedParcel(UUID id, String world, int x, int y, int z, float yaw, List<String> contents, boolean open) {
         this.id = id;

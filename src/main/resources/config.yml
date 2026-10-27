@@ -210,7 +210,8 @@ messages:
   letter:
     attach-title: "<dark_gray>Letter - attached item"
     sealed: "<green>Your letter is sealed in its envelope."
-    opened: "<gray>You opened the envelope. Right-click the letter to change it and reseal it."
+    opened-from: "<gold>✉ You opened a letter from <white><sender></white>."
+    opened: "<gray>Right-click the letter to change it and reseal it."
     opened-with-item: "<gold>Something is tucked inside!</gold> <gray>Sneak + right-click the letter to take it."
     not-allowed: "<red>That item can't go in a letter. Use a parcel instead!"
     only-one: "<yellow>Letters can only hold one item - the rest went back to your inventory."
@@ -219,6 +220,8 @@ messages:
     claimed: "<green>You took <white><item></white> from the letter."
   parcel:
     hint: "<gray>Place it on the ground and right-click it."
+    from: "<gold>This parcel is from <white><sender></white>."
+    from-label: "<gold>From: <white><sender>"
     packing-hint: "<gray>Right-click the box with items to pack them (up to 8 stacks), with an empty hand to take the last one out, and <white>sneak + right-click</white> to seal it."
     added: "<green>Packed <white><count>x <item></white> <gray>(<used>/<max>)"
     took: "<yellow>Took out <white><count>x <item></white>."

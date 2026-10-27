@@ -128,7 +128,9 @@ final class WorldListener implements Listener {
         if (pages.isEmpty()) pages.add(Component.empty());
         String from = MailItems.sender(letter);
         p.openBook(Book.book(Component.text("Letter"), Component.text(from == null ? "?" : from), pages));
-        Msg.send(p, MailItems.attachment(letter) != null ? "letter.opened-with-item" : "letter.opened");
+        Msg.send(p, "letter.opened-from", "sender", from == null ? "someone" : from);
+        if (MailItems.attachment(letter) != null) Msg.send(p, "letter.opened-with-item");
+        else Msg.send(p, "letter.opened");
     }
 
     /** The pack renames the book's Sign button to "Put in envelope": for letters, sealing replaces signing. */
