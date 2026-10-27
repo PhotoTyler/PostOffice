@@ -296,9 +296,14 @@ final class PostOffices implements Listener {
         b.set(4, 1, 7, lower, false);
         b.set(4, 2, 7, upper, false);
 
-        // Windows
+        // Windows: panes joined to the wall on both sides
         for (int[] win : new int[][]{{1, 2, 4}, {1, 3, 4}, {7, 2, 4}, {7, 3, 4}, {2, 2, 7}, {6, 2, 7}, {4, 3, 1}}) {
-            b.at(win[0], win[1], win[2]).setType(Material.GLASS_PANE, true);
+            org.bukkit.block.data.MultipleFacing pane = (org.bukkit.block.data.MultipleFacing) Material.GLASS_PANE.createBlockData();
+            boolean sideWall = win[0] == 1 || win[0] == 7; // walls running north-south (local)
+            for (BlockFace f : sideWall ? new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH} : new BlockFace[]{BlockFace.EAST, BlockFace.WEST}) {
+                pane.setFace(b.face(f), true);
+            }
+            b.set(win[0], win[1], win[2], pane, false);
         }
 
         // Roof: stepped pyramid of stairs over a plank ceiling, with a 1-block overhang
@@ -329,7 +334,7 @@ final class PostOffices implements Listener {
         flag.setRotation(b.face(BlockFace.SOUTH));
         b.set(4, 11, 4, flag, false);
 
-        // Counter either side of the drop-off, a bookshelf, a lamp and a red carpet to the door
+        // Counter either side of the postbox, a bookshelf, a lamp and a red carpet to the door
         for (int lx : new int[]{2, 3, 5, 6}) b.set(lx, 1, 3, p.counter);
         b.set(6, 1, 2, Material.BOOKSHELF);
         b.set(6, 2, 2, Material.BOOKSHELF);
@@ -347,8 +352,10 @@ final class PostOffices implements Listener {
             awning.setHalf(Bisected.Half.TOP);
             b.set(lx, 4, 8, awning, false);
         }
-        b.at(2, 1, 8).setType(p.fence, true);
-        b.set(2, 2, 8, Material.LANTERN.createBlockData(), false);
+        for (int lx : new int[]{2, 6}) { // lantern posts either side of the door
+            b.at(lx, 1, 8).setType(p.fence, true);
+            b.set(lx, 2, 8, Material.LANTERN.createBlockData(), false);
+        }
         for (int lx : new int[]{1, 7}) {
             b.set(lx, 0, 8, Material.GRASS_BLOCK);
             b.set(lx, 1, 8, Material.RED_TULIP);
@@ -367,11 +374,10 @@ final class PostOffices implements Listener {
             sign.update(true, false);
         }
 
-        // The public drop-offs: one at the counter facing the door, and a pillar box outside
+        // The public drop-off: a pillar box behind the counter gap, facing the door
         float yaw = yawOf(b.face(BlockFace.SOUTH));
         Block dropBlock = b.at(4, 1, 2);
         PostBlock drop = plugin.blocks().placeSystem(PostBlock.Type.DROPOFF, dropBlock, yaw, SERVER, "Post Office");
-        plugin.blocks().placeSystem(PostBlock.Type.DROPOFF, b.at(6, 1, 8), yaw, SERVER, "Post Office");
 
         // The Postmaster behind the counter
         Block clerkBlock = b.at(2, 1, 2);
@@ -465,25 +471,40 @@ final class PostOffices implements Listener {
         plugin.traders().track(v);
     }
 
-    /** Puts the Postmaster back if he has gone missing. */
+    /**
+     * Makes sure each Post Office has exactly one Postmaster. Entities load separately from (and
+     * after) chunks, so this looks a moment later rather than trusting the event's entity list.
+     */
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent e) {
         Chunk c = e.getChunk();
-        List<Office> here = new ArrayList<>();
         for (Office o : store.offices.values()) {
             if (o.world().equals(c.getWorld().getName()) && ((int) Math.floor(o.x())) >> 4 == c.getX()
-                    && ((int) Math.floor(o.z())) >> 4 == c.getZ()) here.add(o);
+                    && ((int) Math.floor(o.z())) >> 4 == c.getZ()) {
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (c.isLoaded()) checkClerk(o);
+                }, 40L);
+            }
         }
-        if (here.isEmpty()) return;
-        Set<String> present = new HashSet<>();
-        for (Entity en : e.getEntities()) {
-            String id = en.getPersistentDataContainer().get(Keys.CLERK, PersistentDataType.STRING);
-            if (id != null && en instanceof Villager) present.add(id);
+    }
+
+    private void checkClerk(Office o) {
+        World w = Bukkit.getWorld(o.world());
+        if (w == null) return;
+        List<Villager> clerks = new ArrayList<>();
+        for (Entity en : w.getNearbyEntities(new Location(w, o.x(), o.y(), o.z()), 8, 6, 8)) {
+            if (en instanceof Villager v && v.isValid()
+                    && o.village().equals(v.getPersistentDataContainer().get(Keys.CLERK, PersistentDataType.STRING))) {
+                clerks.add(v);
+            }
         }
-        for (Office o : here) {
-            if (!present.contains(o.village())) Bukkit.getScheduler().runTask(plugin, () -> {
-                if (c.isLoaded()) spawnClerk(o);
-            });
+        if (clerks.isEmpty()) {
+            spawnClerk(o);
+            return;
+        }
+        for (int i = 1; i < clerks.size(); i++) {
+            for (Entity passenger : clerks.get(i).getPassengers()) passenger.remove();
+            clerks.get(i).remove();
         }
     }
 }

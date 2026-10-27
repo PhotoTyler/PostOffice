@@ -91,7 +91,7 @@ final class Traders implements Listener {
             if (e == null) return false; // unloaded; keep
             if (!e.isValid()) return true;
             for (Entity p : e.getPassengers()) {
-                if (p instanceof ItemDisplay d && e instanceof Villager v) d.setRotation(v.getBodyYaw(), 0f);
+                if (p instanceof ItemDisplay d && e instanceof Villager v) d.setRotation(Displays.facing(v.getBodyYaw()), 0f);
             }
             return false;
         });

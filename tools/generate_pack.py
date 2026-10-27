@@ -366,6 +366,45 @@ def postman_skin():
     return img
 
 
+PLATE_PAL = {"k": hexc("1a1a1a"), "w": hexc("f4f1e8"), "g": hexc("6e6e6e"), "r": hexc("c8102e")}
+PLATE = [
+    "kkkkkkkkkkkkkkkk",
+    "kwwwwwwwwwwwwwwk",
+    "kwggggggwwwwwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kwgggwggggggwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kwggggggwwwwwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kwgggwgggggwwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kwggggggggwwwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kwgggwggggggwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kkkkkkkkkkkkkkkk",
+]
+CROWN_PAL = {"r": hexc("c8102e"), "Y": hexc("e2b93b"), "d": hexc("a8862a"), "R": hexc("7a0b1c"), "h": hexc("f6dc7a")}
+CROWN = [
+    "rrrrrrrrrrrrrrrr",
+    "rrrrrrrYYrrrrrrr",
+    "rrrrrrYhYYrrrrrr",
+    "rrrrrrrYYrrrrrrr",
+    "rrYrrrrYYrrrrYrr",
+    "rYhYrrYhYYrrYYYr",
+    "rrYYrYYYYYYrYYrr",
+    "rrYYYYYYYYYYYYrr",
+    "rrYYYRYYYYRYYYrr",
+    "rrYhYYYYYYYYYYrr",
+    "rrrYYYYYYYYYYrrr",
+    "rrrYddddddddYrrr",
+    "rrrYYYYYYYYYYrrr",
+    "rrrrrrrrrrrrrrrr",
+    "rrrrrrrrrrrrrrrr",
+    "rrrrrrrrrrrrrrrr",
+]
+
 def build_textures():
     t = os.path.join(NS, "textures")
     write_png(os.path.join(t, "item", "letter.png"), from_map(LETTER, PAPER))
@@ -392,6 +431,9 @@ def build_textures():
     write_png(os.path.join(b, "blue_paint.png"), painted(BLUE, 15))
     write_png(os.path.join(b, "us_front.png"), overlay(painted(BLUE, 16), US_FRONT, US_FRONT_OVERLAY))
     write_png(os.path.join(b, "metal.png"), painted("6d7178", 17, 0.08))
+    write_png(os.path.join(b, "pillar_plate.png"), from_map(PLATE, PLATE_PAL))
+    write_png(os.path.join(b, "pillar_crown.png"), from_map(CROWN, CROWN_PAL))
+    write_png(os.path.join(b, "slot_black.png"), noisy(hexc("0e0e0e"), 21, 0.05))
     write_png(os.path.join(b, "flag_red.png"), painted("d0312d", 18))
 
     write_png(os.path.join(b, "cap_side.png"), from_map(CAP_SIDE, CAP_PAL))
@@ -469,21 +511,38 @@ def build_models():
     }
 
     # Public drop-off: a pillar box
-    # Public drop-off: a pillar box two blocks tall (the plugin puts barriers in both blocks).
+    # Public drop-off: a round UK-style pillar box, two blocks tall (the plugin puts barriers in both
+    # blocks). Each "round" layer is three overlapping boxes, which reads as a cylinder in pixel style.
     full = [0, 0, 16, 16]
+
+    def round_layer(y0, y1, r, texture):
+        return [
+            el([8 - r, y0, 8 - r + 2], [8 + r, y1, 8 + r - 2], texture, uv=full),
+            el([8 - r + 1, y0, 8 - r + 1], [8 + r - 1, y1, 8 + r - 1], texture, uv=full),
+            el([8 - r + 2, y0, 8 - r], [8 + r - 2, y1, 8 + r], texture, uv=full),
+        ]
+
+    def decal(x0, y0, x1, y1, z, texture):
+        return el([x0, y0, z], [x1, y1, z + 0.2], texture, faces=("south", "east", "west", "up", "down"), uv=full)
+
+    pillar = []
+    pillar += round_layer(0, 1, 6, "#black")       # foot
+    pillar += round_layer(1, 5, 5.5, "#black")     # black base
+    pillar += round_layer(5, 21, 5, "#red")        # body
+    pillar += round_layer(21, 24, 5.5, "#red")     # band with the letter slot
+    pillar += round_layer(24, 26, 5, "#red")
+    pillar += round_layer(26, 27, 6, "#red")       # cap rim
+    pillar += round_layer(27, 29, 5, "#red")       # dome
+    pillar += round_layer(29, 30.5, 4, "#red")
+    pillar += round_layer(30.5, 31.5, 2.5, "#red")
+    pillar.append(el([5.5, 22, 13.5], [10.5, 23, 13.8], "#slot", faces=("south", "up", "down", "east", "west"), uv=full))
+    pillar.append(decal(6, 15, 10, 19, 13, "#plate"))   # collection times plate
+    pillar.append(decal(6, 10.5, 10, 13.5, 13, "#crown"))  # gold crown
     models["dropoff"] = {
         "parent": "postoffice:item/block_base",
-        "textures": {"particle": tex("red_paint"), "red": tex("red_paint"), "front": tex("dropoff_front"),
-                     "black": tex("black_paint"), "dark": tex("red_paint_dark")},
-        "elements": [
-            el([3, 0, 3], [13, 1, 13], "#black"),
-            el([3.5, 1, 3.5], [12.5, 16, 12.5], "#red", uv=full),
-            el([3.5, 16, 3.5], [12.5, 27, 12.5], "#red", per_face={"south": "#front"}, uv=full),
-            el([3, 27, 3], [13, 28.5, 13], "#dark", uv=full),
-            el([4, 28.5, 4], [12, 30, 12], "#red", uv=full),
-            el([5.5, 30, 5.5], [10.5, 31, 10.5], "#dark", uv=full),
-            el([7, 31, 7], [9, 32, 9], "#black", uv=full),
-        ],
+        "textures": {"particle": tex("red_paint"), "red": tex("red_paint"), "black": tex("black_paint"),
+                     "slot": tex("slot_black"), "plate": tex("pillar_plate"), "crown": tex("pillar_crown")},
+        "elements": pillar,
         "display": {
             **BLOCK_DISPLAY,
             "gui": {"rotation": [30, 45, 0], "translation": [0, -3.5, 0], "scale": [0.36, 0.36, 0.36]},

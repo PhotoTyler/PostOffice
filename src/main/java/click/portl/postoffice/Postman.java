@@ -130,6 +130,7 @@ final class Postman {
                     new Quaternionf(), new Vector3f(1f, 1f, 1f), new Quaternionf()));
             d.getPersistentDataContainer().set(tag, PersistentDataType.STRING, id);
         });
+        cap.setRotation(Displays.facing(v.getYaw()), 0f);
         v.addPassenger(cap);
         return cap;
     }
@@ -185,7 +186,7 @@ final class Postman {
             leave();
             return;
         }
-        if (hat != null && hat.isValid()) hat.setRotation(villager.getYaw(), 0f);
+        if (hat != null && hat.isValid()) hat.setRotation(Displays.facing(villager.getYaw()), 0f);
         if (age % 10 == 0) syncTickets();
 
         switch (state) {
