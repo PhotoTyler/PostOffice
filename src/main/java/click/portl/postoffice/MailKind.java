@@ -4,7 +4,7 @@ import org.bukkit.Material;
 
 /** Every custom PostOffice item. The id is stored in the item's PDC and is also the default model name. */
 enum MailKind {
-    LETTER("letter", Material.PAPER, 16),
+    LETTER("letter", Material.WRITABLE_BOOK, 16),
     SEALED_LETTER("sealed_letter", Material.PAPER, 1),
     PARCEL("parcel", Material.PAPER, 1),
     EMPTY_BOX("empty_box", Material.PAPER, 16),

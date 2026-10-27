@@ -72,46 +72,39 @@ final class MailItems {
         return item;
     }
 
-    /** A blank letter (stackable, no unique id yet). */
+    /** A blank letter: a Book & Quill with the letter model (stacks to 16 until written in). */
     static ItemStack blankLetter() {
         return create(MailKind.LETTER);
     }
 
-    /** Saves text and sender into an open letter. */
-    static void writeLetter(ItemStack item, String text, String sender) {
-        ensureUnique(item);
-        item.editMeta(m -> {
+    /** "Put in envelope": an open letter becomes a sealed envelope (same id, attachment kept). */
+    static ItemStack seal(ItemStack letter, String from) {
+        ItemStack envelope = sealedLetter(pages(letter), from, attachment(letter));
+        String id = uniqueId(letter);
+        if (id != null) envelope.editMeta(m -> m.getPersistentDataContainer().set(Keys.UNIQUE, PersistentDataType.STRING, id));
+        return envelope;
+    }
+
+    /** Opens an envelope: it becomes an open letter (a Book & Quill) to read, change and reseal. */
+    static ItemStack unseal(ItemStack envelope) {
+        String id = ensureUnique(envelope);
+        List<String> pages = pages(envelope);
+        String from = sender(envelope);
+        ItemStack att = attachment(envelope);
+        ItemStack letter = create(MailKind.LETTER);
+        letter.editMeta(m -> {
             PersistentDataContainer pdc = m.getPersistentDataContainer();
-            pdc.set(Keys.PAGES, PersistentDataType.LIST.strings(), List.of(text));
-            if (sender != null) pdc.set(Keys.SENDER, PersistentDataType.STRING, sender);
-            m.setMaxStackSize(1);
-        });
-        updateLore(item);
-    }
-
-    /** Puts an open letter into its envelope. */
-    static void seal(ItemStack item) {
-        ensureUnique(item);
-        item.editMeta(m -> {
-            m.getPersistentDataContainer().set(Keys.TYPE, PersistentDataType.STRING, MailKind.SEALED_LETTER.id);
-            m.getPersistentDataContainer().remove(Keys.READ);
-            m.setItemModel(Keys.model(MailKind.SEALED_LETTER.id));
-            m.itemName(Msg.item(name(MailKind.SEALED_LETTER)));
-            m.setMaxStackSize(1);
-        });
-        updateLore(item);
-    }
-
-    /** Opens an envelope: it becomes an open letter you can read, change and reseal. */
-    static void unseal(ItemStack item) {
-        item.editMeta(m -> {
-            m.getPersistentDataContainer().set(Keys.TYPE, PersistentDataType.STRING, MailKind.LETTER.id);
-            m.getPersistentDataContainer().set(Keys.READ, PersistentDataType.BOOLEAN, true);
+            pdc.set(Keys.UNIQUE, PersistentDataType.STRING, id);
+            if (from != null) pdc.set(Keys.SENDER, PersistentDataType.STRING, from);
+            if (att != null) pdc.set(Keys.ATTACHMENT, PersistentDataType.STRING, ItemCodec.encode(att));
+            pdc.set(Keys.READ, PersistentDataType.BOOLEAN, true);
             m.setItemModel(Keys.model("letter_open"));
             m.itemName(Msg.item(plugin.getConfig().getString("items.letter.opened-name", "<white>Opened Letter")));
             m.setMaxStackSize(1);
+            if (m instanceof WritableBookMeta book) book.setPages(pages.isEmpty() ? List.of("") : pages);
         });
-        updateLore(item);
+        updateLore(letter);
+        return letter;
     }
 
     static ItemStack parcel(ItemStack payload, String sender) {
@@ -137,21 +130,15 @@ final class MailItems {
         return item;
     }
 
-    /** What actually goes into the post: a written letter becomes a sealed envelope, parcels get a sender. */
+    /** What actually goes into the post: an open letter goes in an envelope, parcels get a sender. */
     static ItemStack prepareForPost(ItemStack item, Player sender) {
         MailKind kind = kind(item);
-        if (kind == MailKind.LETTER && item.getType() != MailKind.LETTER.material) {
-            // old book & quill letter
+        if (kind == MailKind.LETTER) {
             String from = sender(item);
-            return sealedLetter(pages(item), from == null ? sender.getName() : from, attachment(item));
+            return seal(item, from == null ? sender.getName() : from);
         }
         ItemStack copy = item.clone();
         copy.setAmount(1);
-        if (kind == MailKind.LETTER) {
-            if (sender(copy) == null) copy.editMeta(m -> m.getPersistentDataContainer().set(Keys.SENDER, PersistentDataType.STRING, sender.getName()));
-            seal(copy); // letters always travel in an envelope
-            return copy;
-        }
         if (kind == MailKind.PARCEL && sender(copy) == null) {
             copy.editMeta(m -> m.getPersistentDataContainer().set(Keys.SENDER, PersistentDataType.STRING, sender.getName()));
             updateLore(copy);
@@ -190,11 +177,13 @@ final class MailItems {
         return parcel.getItemMeta().getPersistentDataContainer().get(Keys.PAYLOAD, PersistentDataType.STRING);
     }
 
-    /** Letter text: from the book for an unsent letter, from the PDC for a sealed one. */
+    /** Letter text: from the book for an open letter, from the PDC for an envelope. */
     static List<String> pages(ItemStack item) {
         ItemMeta meta = item.getItemMeta();
-        List<String> stored = meta.getPersistentDataContainer().get(Keys.PAGES, PersistentDataType.LIST.strings());
-        if (stored != null) return stored;
+        if (!(meta instanceof WritableBookMeta)) {
+            List<String> stored = meta.getPersistentDataContainer().get(Keys.PAGES, PersistentDataType.LIST.strings());
+            return stored == null ? List.of() : stored;
+        }
         List<String> out = new ArrayList<>();
         if (meta instanceof BookMeta book) {
             for (Component c : book.pages()) out.add(PlainTextComponentSerializer.plainText().serialize(c));

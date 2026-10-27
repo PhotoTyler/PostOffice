@@ -549,6 +549,26 @@ def build_models():
             json.dump({"model": {"type": "minecraft:model", "model": "postoffice:item/" + name}}, f, indent=2)
 
 
+# The Book & Quill screen is drawn by the game, so its buttons can't be removed or added.
+# Instead the pack renames them: "Sign" becomes "Put in envelope" (the plugin seals the letter
+# instead of signing it) and the title box asks for the name on the envelope.
+BOOK_TEXT = {
+    "book.signButton": "Put in envelope",
+    "book.editTitle": "Name on the envelope:",
+    "book.finalizeButton": "Seal envelope",
+    "book.finalizeWarning": "You can open the envelope and reseal it any time.",
+    "book.sign.titlebox": "From",
+}
+
+
+def build_lang():
+    for lang in ("en_us", "en_gb"):
+        path = os.path.join(ROOT, "assets", "minecraft", "lang", lang + ".json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(BOOK_TEXT, f, indent=2)
+
+
 def build_meta():
     meta = {"pack": {"description": "PostOffice: letters, parcels & mailboxes", "min_format": 88, "max_format": 1000}}
     with open(os.path.join(ROOT, "pack.mcmeta"), "w", encoding="utf-8") as f:
@@ -558,5 +578,6 @@ def build_meta():
 if __name__ == "__main__":
     build_textures()
     build_models()
+    build_lang()
     build_meta()
     print("Resource pack written to", os.path.normpath(ROOT))

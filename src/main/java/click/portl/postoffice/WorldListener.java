@@ -3,7 +3,10 @@ package click.portl.postoffice;
 import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.Bukkit;
+import net.kyori.adventure.inventory.Book;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,6 +14,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.player.PlayerEditBookEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
@@ -66,14 +70,76 @@ final class WorldListener implements Listener {
                 if (onBlock) plugin.parcels().place(p, block, e.getBlockFace(), item, hand);
                 else Msg.send(p, "parcel.hint");
             }
-            case LETTER, SEALED_LETTER -> {
+            case SEALED_LETTER -> {
                 if (onBlock && !canPlaceHere) return;
                 e.setCancelled(true);
+                openEnvelope(p, hand);
+            }
+            case LETTER -> {
                 int slot = hand == EquipmentSlot.OFF_HAND ? 40 : p.getInventory().getHeldItemSlot();
-                LetterDialog.open(plugin, p, slot);
+                if (item.getType() != MailKind.LETTER.material) {
+                    // A paper letter from v1.1.0: turn it back into a book letter.
+                    e.setCancelled(true);
+                    p.getInventory().setItem(slot, MailItems.unseal(item));
+                    return;
+                }
+                if (p.isSneaking()) {
+                    e.setCancelled(true);
+                    // Next tick, so our menu replaces the book screen the client may already have opened.
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (MailItems.kind(p.getInventory().getItem(slot)) == MailKind.LETTER) {
+                            new LetterMenus.Attach(plugin, p, slot).open(p);
+                        }
+                    });
+                    return;
+                }
+                if (item.getAmount() > 1) {
+                    // Writing on one letter from a stack: split it off so the rest stay blank.
+                    ItemStack rest = item.clone();
+                    rest.setAmount(item.getAmount() - 1);
+                    item.setAmount(1);
+                    MailItems.ensureUnique(item);
+                    item.editMeta(m -> m.setMaxStackSize(1));
+                    p.getInventory().setItem(slot, item);
+                    LetterMenus.giveBack(p, rest);
+                }
+                // Otherwise the normal book editor opens; its Sign button reads "Put in envelope".
             }
             default -> {}
         }
+    }
+
+    /** Right-click an envelope: it opens into the letter, shown as a book to read. */
+    private void openEnvelope(Player p, EquipmentSlot hand) {
+        int slot = hand == EquipmentSlot.OFF_HAND ? 40 : p.getInventory().getHeldItemSlot();
+        ItemStack letter = MailItems.unseal(p.getInventory().getItem(slot));
+        p.getInventory().setItem(slot, letter);
+        p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1f, 0.8f);
+        List<Component> pages = new ArrayList<>();
+        for (String page : MailItems.pages(letter)) pages.add(Component.text(page));
+        if (pages.isEmpty()) pages.add(Component.empty());
+        String from = MailItems.sender(letter);
+        p.openBook(Book.book(Component.text("Letter"), Component.text(from == null ? "?" : from), pages));
+        Msg.send(p, MailItems.attachment(letter) != null ? "letter.opened-with-item" : "letter.opened");
+    }
+
+    /** The pack renames the book's Sign button to "Put in envelope": for letters, sealing replaces signing. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEditBook(PlayerEditBookEvent e) {
+        if (!e.isSigning()) return;
+        if (!e.getPreviousBookMeta().getPersistentDataContainer().has(Keys.TYPE)) return;
+        String title = e.getNewBookMeta().getTitle();
+        e.setSigning(false);
+        Player p = e.getPlayer();
+        int slot = e.getSlot();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            ItemStack letter = p.getInventory().getItem(slot);
+            if (MailItems.kind(letter) != MailKind.LETTER) return;
+            String from = title == null || title.isBlank() ? p.getName() : PostBlocks.trimName(title);
+            p.getInventory().setItem(slot, MailItems.seal(letter, from));
+            p.playSound(p.getLocation(), Sound.ITEM_BOOK_PUT, 1f, 1.2f);
+            Msg.send(p, "letter.sealed");
+        });
     }
 
     /** Creative players break blocks instantly; treat it like the survival left-click. */
