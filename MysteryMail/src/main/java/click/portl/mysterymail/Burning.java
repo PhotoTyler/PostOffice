@@ -54,6 +54,7 @@ final class Burning implements Listener {
     private static final NamespacedKey PAYLOADS = new NamespacedKey("postoffice", "payloads");
     private static final NamespacedKey PAYLOAD = new NamespacedKey("postoffice", "payload");
     private static final NamespacedKey ATTACHMENT = new NamespacedKey("postoffice", "attachment");
+    private static final NamespacedKey FUEL = new NamespacedKey("mysterymail", "fuel");
     private static final Set<String> BURNABLE = Set.of("letter", "sealed_letter", "parcel", "empty_box");
 
     private final MysteryMail plugin;
@@ -71,8 +72,30 @@ final class Burning implements Listener {
     /** "letter", "parcel", ... for PostOffice mail that can burn, else null. */
     private static String kind(ItemStack item) {
         if (item == null || item.isEmpty() || !item.hasItemMeta()) return null;
-        String k = item.getItemMeta().getPersistentDataContainer().get(TYPE, PersistentDataType.STRING);
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        String fuel = pdc.get(FUEL, PersistentDataType.STRING);
+        if (fuel != null) return fuel.equals("letter") ? "letter_fuel" : "box_fuel";
+        String k = pdc.get(TYPE, PersistentDataType.STRING);
         return k != null && BURNABLE.contains(k) ? k : null;
+    }
+
+    /**
+     * In the fuel slot every letter becomes the same plain "letters to burn" item (and every box the
+     * same "boxes to burn"), so different letters stack there. Outside a furnace they never stack.
+     */
+    private static ItemStack fuelForm(ItemStack mail, int amount) {
+        boolean letter = kind(mail).contains("letter");
+        ItemStack fuel = new ItemStack(Material.PAPER, amount);
+        fuel.editMeta(m -> {
+            m.setItemModel(new NamespacedKey("postoffice", letter ? "sealed_letter" : "empty_box"));
+            m.itemName(net.kyori.adventure.text.Component.text(letter ? "Letters to Burn" : "Boxes to Burn"));
+            m.lore(List.of(net.kyori.adventure.text.Component.text("Only good for the furnace now",
+                    net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+            m.setMaxStackSize(64);
+            m.getPersistentDataContainer().set(FUEL, PersistentDataType.STRING, letter ? "letter" : "box");
+        });
+        return fuel;
     }
 
     /** Whatever is packed in a parcel or clipped to a letter. */
@@ -186,22 +209,21 @@ final class Burning implements Listener {
             return;
         }
         ItemStack fuel = furnace.getFuel();
+        ItemStack form = fuelForm(moving, 1);
         int room;
-        if (fuel == null || fuel.isEmpty()) room = moving.getMaxStackSize();
-        else if (fuel.isSimilar(moving)) room = fuel.getMaxStackSize() - fuel.getAmount();
+        if (fuel == null || fuel.isEmpty()) room = form.getMaxStackSize();
+        else if (fuel.isSimilar(form)) room = fuel.getMaxStackSize() - fuel.getAmount();
         else if (intoFuel) {
             // Different fuel already there: swap them, like the game does.
             ItemStack old = fuel.clone();
-            furnace.setFuel(moving.clone());
+            furnace.setFuel(fuelForm(moving, moving.getAmount()));
             p.setItemOnCursor(old);
             track(furnace);
             return;
         } else return;
         int n = Math.min(room, intoFuel && e.getClick() == ClickType.RIGHT ? 1 : moving.getAmount());
         if (n <= 0) return;
-        ItemStack put = moving.clone();
-        put.setAmount((fuel == null || fuel.isEmpty() ? 0 : fuel.getAmount()) + n);
-        furnace.setFuel(put);
+        furnace.setFuel(fuelForm(moving, (fuel == null || fuel.isEmpty() ? 0 : fuel.getAmount()) + n));
         ItemStack left = moving.clone();
         left.setAmount(moving.getAmount() - n);
         if (intoFuel) p.setItemOnCursor(left.getAmount() > 0 ? left : null);
