@@ -63,7 +63,13 @@ jokes:
     - "What do you call a parrot that won't go away?|A Polly-stay."
     - "Why did the torch get a promotion?|It was the brightest one there."
 
-# Who the letters say they're from (one is picked at random)
+# Who the letters say they're from. Every name below, plus every mix of the two sender-parts
+# lists ("A Sneaky Llama", "An Itchy Pufferfish", ...), is used once before any name comes round again.
+sender-parts:
+  describing: [Sneaky, Grumpy, Sleepy, Fluffy, Brave, Shy, Giggly, Itchy, Bouncy, Hungry, Polite,
+    Confused, Sparkly, Tiny, Enormous, Lost, Cheerful, Wobbly, Mysterious, Dizzy, Sneezy, Fancy]
+  who: [Llama, Creeper, Pufferfish, Axolotl, Goat, Panda, Skeleton, Zombie, Villager, Iron Golem,
+    Fox, Frog, Bee, Parrot, Snow Golem, Turtle, Dolphin, Piglin, Allay, Sniffer, Armadillo, Camel]
 senders:
   - "A Secret Admirer"
   - "A Friendly Creeper"

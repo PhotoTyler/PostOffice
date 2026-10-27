@@ -182,9 +182,31 @@ public final class MysteryMail extends JavaPlugin implements Listener {
         return pages;
     }
 
+    private final List<String> senderBag = new ArrayList<>();
+    private String lastSender;
+
+    /**
+     * A different sender every time: the names from the config plus every "A <Sneaky> <Llama>"
+     * mix, shuffled, and each used once before any comes round again.
+     */
     private String randomSender() {
-        List<String> senders = getConfig().getStringList("senders");
-        return senders.isEmpty() ? "A Secret Admirer" : senders.get(ThreadLocalRandom.current().nextInt(senders.size()));
+        if (senderBag.isEmpty()) {
+            java.util.Set<String> all = new java.util.LinkedHashSet<>(getConfig().getStringList("senders"));
+            for (String adj : getConfig().getStringList("sender-parts.describing")) {
+                for (String who : getConfig().getStringList("sender-parts.who")) all.add(article(adj) + " " + adj + " " + who);
+            }
+            if (all.isEmpty()) all.add("A Secret Admirer");
+            senderBag.addAll(all);
+            java.util.Collections.shuffle(senderBag);
+            // never the same name twice in a row, even across a reshuffle
+            if (senderBag.size() > 1 && senderBag.getLast().equals(lastSender)) java.util.Collections.swap(senderBag, 0, senderBag.size() - 1);
+        }
+        lastSender = senderBag.removeLast();
+        return lastSender;
+    }
+
+    private static String article(String word) {
+        return "AEIOU".indexOf(Character.toUpperCase(word.charAt(0))) >= 0 ? "An" : "A";
     }
 
     private static String fill(String template, String player, Jokes.Joke joke, String sender) {
@@ -241,6 +263,7 @@ public final class MysteryMail extends JavaPlugin implements Listener {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length >= 1 && args[0].equalsIgnoreCase("reload")) {
             reloadConfig();
+            senderBag.clear();
             msg(sender, "reloaded");
             return true;
         }
