@@ -62,6 +62,9 @@ post-offices:
   # Worlds to build in; empty = every world.
   worlds: []
   clerk-name: "<gold>Postmaster"
+  # Players can hurt the Postmaster (he doesn't move when hit). If he's killed, a new one takes
+  # over after this many minutes.
+  postmaster-respawn-minutes: 60
   sign:
     - "✉"
     - "<bold>POST OFFICE"

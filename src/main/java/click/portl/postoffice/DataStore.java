@@ -46,6 +46,7 @@ final class DataStore {
     final Map<UUID, PlacedParcel> parcels = new LinkedHashMap<>();
     final java.util.Set<String> villagesDone = new java.util.HashSet<>();
     final Map<String, PostOffices.Office> offices = new LinkedHashMap<>();
+    final Map<String, Long> clerkDeaths = new HashMap<>(); // village -> when its Postmaster was killed
 
     DataStore(PostOfficePlugin plugin) {
         this.plugin = plugin;
@@ -125,6 +126,8 @@ final class DataStore {
     void loadVillages() {
         YamlConfiguration y = YamlConfiguration.loadConfiguration(new File(dir, "villages.yml"));
         villagesDone.addAll(y.getStringList("done"));
+        ConfigurationSection deaths = y.getConfigurationSection("postmaster-deaths");
+        if (deaths != null) for (String k : deaths.getKeys(false)) clerkDeaths.put(deaths.getString(k + ".village"), deaths.getLong(k + ".time"));
         ConfigurationSection s = y.getConfigurationSection("offices");
         if (s != null) for (String key : s.getKeys(false)) {
             ConfigurationSection o = s.getConfigurationSection(key);
@@ -136,6 +139,11 @@ final class DataStore {
     void saveVillages() {
         YamlConfiguration y = new YamlConfiguration();
         y.set("done", new ArrayList<>(villagesDone));
+        int d = 0;
+        for (Map.Entry<String, Long> en : clerkDeaths.entrySet()) {
+            y.set("postmaster-deaths." + d + ".village", en.getKey());
+            y.set("postmaster-deaths." + (d++) + ".time", en.getValue());
+        }
         int i = 0;
         for (PostOffices.Office o : offices.values()) {
             String p = "offices." + (i++) + ".";

@@ -59,7 +59,8 @@ final class PostmanListener implements Listener {
     /** Only players can hurt him (and only if the config allows it). */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent e) {
-        if (!isPostman(e.getEntity())) return;
+        boolean clerk = e.getEntity().getPersistentDataContainer().has(Keys.CLERK);
+        if (!isPostman(e.getEntity()) && !clerk) return;
         if (!plugin.getConfig().getBoolean("postman.killable", true)) {
             e.setCancelled(true);
             return;
@@ -70,6 +71,12 @@ final class PostmanListener implements Listener {
             if (d instanceof Projectile proj && proj.getShooter() instanceof Player) return;
         }
         e.setCancelled(true);
+    }
+
+    /** The Postmaster can be hurt, but stays put behind his counter. */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onKnockback(io.papermc.paper.event.entity.EntityKnockbackEvent e) {
+        if (e.getEntity().getPersistentDataContainer().has(Keys.CLERK)) e.setCancelled(true);
     }
 
     /** Delivery Postman: his bag spills (only the senders are told), and his cap drops. */
@@ -91,6 +98,8 @@ final class PostmanListener implements Listener {
         var pdc = e.getEntity().getPersistentDataContainer();
         if (isPostman(e.getEntity()) || !(pdc.has(Keys.CLERK) || pdc.has(Keys.TRADER))) return;
         dropCap(e);
+        String village = pdc.get(Keys.CLERK, org.bukkit.persistence.PersistentDataType.STRING);
+        if (village != null) plugin.offices().clerkDied(village);
     }
 
     private void dropCap(EntityDeathEvent e) {

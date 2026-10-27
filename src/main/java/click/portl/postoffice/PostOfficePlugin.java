@@ -59,6 +59,7 @@ public final class PostOfficePlugin extends JavaPlugin {
         post.start();
         parcels.start();
         traders.start();
+        offices.startChecks();
 
         // Leftover Postmen from a crash in already-loaded chunks; refresh displays near loaded blocks.
         Bukkit.getScheduler().runTask(this, () -> {

@@ -463,7 +463,7 @@ final class PostOffices implements Listener {
         Location at = new Location(w, o.x(), o.y(), o.z(), o.yaw(), 0f);
         Villager v = w.spawn(at, Villager.class, villager -> {
             Postman.dress(plugin, villager, plugin.getConfig().getString("post-offices.clerk-name", "<gold>Postmaster"), true);
-            villager.setInvulnerable(true);
+            villager.setCollidable(false); // players can't shove him out from behind the counter
             villager.getPersistentDataContainer().set(Keys.CLERK, PersistentDataType.STRING, o.village());
             villager.getPersistentDataContainer().set(Keys.TRADER, PersistentDataType.BOOLEAN, true);
         });
@@ -488,6 +488,21 @@ final class PostOffices implements Listener {
         }
     }
 
+    void clerkDied(String village) {
+        store.clerkDeaths.put(village, System.currentTimeMillis());
+        store.saveVillages();
+    }
+
+    /** Every few minutes: Postmasters back on their spot, and replaced once the respawn time is up. */
+    void startChecks() {
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (Office o : store.offices.values()) {
+                World w = Bukkit.getWorld(o.world());
+                if (w != null && w.isChunkLoaded(((int) Math.floor(o.x())) >> 4, ((int) Math.floor(o.z())) >> 4)) checkClerk(o);
+            }
+        }, 1200L, 1200L);
+    }
+
     private void checkClerk(Office o) {
         World w = Bukkit.getWorld(o.world());
         if (w == null) return;
@@ -499,8 +514,24 @@ final class PostOffices implements Listener {
             }
         }
         if (clerks.isEmpty()) {
+            // After he's killed, a new Postmaster takes over once the respawn time has passed.
+            Long died = store.clerkDeaths.get(o.village());
+            long wait = (long) (plugin.getConfig().getDouble("post-offices.postmaster-respawn-minutes", 60) * 60_000);
+            if (died != null && System.currentTimeMillis() - died < wait) return;
+            if (died != null) {
+                store.clerkDeaths.remove(o.village());
+                store.saveVillages();
+            }
             spawnClerk(o);
             return;
+        }
+        // Postmasters from older versions were invulnerable and pushable; keep him on his spot.
+        Villager clerk = clerks.getFirst();
+        clerk.setInvulnerable(false);
+        clerk.setCollidable(false);
+        Location spot = new Location(w, o.x(), o.y(), o.z(), o.yaw(), 0f);
+        if (clerk.getLocation().distanceSquared(spot) > 0.25) {
+            clerk.teleport(spot, io.papermc.paper.entity.TeleportFlag.EntityState.RETAIN_PASSENGERS);
         }
         for (int i = 1; i < clerks.size(); i++) {
             for (Entity passenger : clerks.get(i).getPassengers()) passenger.remove();
