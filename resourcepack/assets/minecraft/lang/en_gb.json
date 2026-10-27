@@ -4,5 +4,6 @@
   "book.finalizeButton": "Seal envelope",
   "book.finalizeWarning": "You can open the envelope and reseal it any time.",
   "book.sign.titlebox": "Your name",
-  "book.byAuthor": ""
+  "book.byAuthor": "",
+  "entity.minecraft.villager.nitwit": "Postman"
 }

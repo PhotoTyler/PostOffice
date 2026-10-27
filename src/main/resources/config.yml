@@ -29,11 +29,15 @@ postman:
   # nobody can see him, vanishes, and reappears out of sight near the mailbox.
   walk-range: 50
   # How long he stands at the drop-off (collecting) and at each mailbox (delivering).
-  stop-seconds: 5
+  collect-stop-seconds: 5
+  deliver-stop-seconds: 2.5
+  # Before vanishing he walks at least this far (and then waits until nobody can see him).
+  leave-walk-blocks: 8
+  trip-walk-blocks: 10
   # He appears (to collect) and reappears (after a long trip) this far from the box, out of view.
   appear-min-distance: 16
   appear-max-distance: 28
-  # If someone keeps watching him, he vanishes anyway after this long.
+  # If someone keeps watching him, he vanishes anyway after this long (with a little animation).
   vanish-timeout-seconds: 30
   travel-blocks-per-second: 25
   min-travel-seconds: 3
@@ -42,10 +46,12 @@ postman:
   max-lifetime-seconds: 600
   # Players can kill the Postman and steal what he's carrying.
   killable: true
+  # Postmen (and the Postmaster) drop their cap when they die; players can wear it.
+  drop-cap: true
   dialogue:
     - "I deliver the mail around here! Use a <yellow>Drop-off postbox</yellow> to send a letter or parcel."
     - "Write a letter with paper and an ink sac, then post it at a <yellow>Drop-off</yellow>. I'll do the walking!"
-    - "Parcels? Put up to a whole stack in a cardboard box and I'll carry it to any mailbox."
+    - "Parcels? Pack up to 8 stacks in a cardboard box and I'll carry it to any mailbox."
     - "Got a mailbox yet, <player>? Craft one, place it, and people can send you things."
     - "Rain or shine, the post gets through. Mostly."
 
@@ -64,7 +70,7 @@ post-offices:
   clerk-dialogue:
     - "Welcome to the Post Office! Use the red postbox to send a letter or parcel."
     - "Need a mailbox? Craft one with iron, dye and a chest, then place it at home."
-    - "Letters are paper and an ink sac. Parcels hold a whole stack - pack them with planks, sticks and wheat."
+    - "Letters are paper and an ink sac. A box holds up to 8 stacks - craft one with planks, sticks and wheat."
     - "Our Postman sets off from here. Please don't attack him, <player>."
 
 village-postmen:
@@ -118,7 +124,10 @@ items:
   empty_box:
     name: "<gold>Empty Box"
     lore:
-      - "<gray>Craft it with an item stack to pack a parcel."
+      - "<gray>Place it, then right-click with items"
+      - "<gray>to pack it (up to 8 stacks)."
+      - "<gray>Sneak + right-click to seal it."
+      - "<gray>Or craft it in the middle of up to 8 stacks."
   mailbox_uk:
     name: "<red>Wall Mailbox"
     lore:
@@ -136,6 +145,10 @@ items:
     lore:
       - "<gray>A public postbox for sending mail."
       - "<gray>Right-click it holding a letter or parcel."
+  postman_cap:
+    name: "<blue>Postman's Cap"
+    lore:
+      - "<gray>Dropped by a Postman. Wear it with pride."
   lore:
     from: "<gray>From: <white><sender>"
     attached: "<gray>Attached: <yellow><item>"
@@ -153,7 +166,6 @@ messages:
     broken: "<red>The PostOffice texture pack couldn't be downloaded (<error>). Fix resource-pack.url in plugins/PostOffice/config.yml, then /postoffice reload."
   postman:
     delivered: "Hi <player>, I've just delivered your mail to <yellow><mailbox></yellow>!"
-    killed: "<red>The Postman drops his bag... <count> item(s) spill out!"
   mailbox:
     placed: "<green>Mailbox <white><mailbox></white> placed! <gray>Sneak + right-click it to rename."
     not-yours: "<gray>That's <white><owner></white>'s mailbox <white><mailbox></white>."
@@ -200,8 +212,16 @@ messages:
     no-room: "<red>Make some room in your inventory first."
     claimed: "<green>You took <white><item></white> from the letter."
   parcel:
-    hint: "<gray>Place the parcel on the ground and right-click it to open it."
-    claimed: "<green>You unpacked <white><count>x <item></white>."
+    hint: "<gray>Place it on the ground and right-click it."
+    packing-hint: "<gray>Right-click the box with items to pack them (up to 8 stacks), with an empty hand to take the last one out, and <white>sneak + right-click</white> to seal it."
+    added: "<green>Packed <white><count>x <item></white> <gray>(<used>/<max>)"
+    took: "<yellow>Took out <white><count>x <item></white>."
+    empty: "<gray>The box is empty. Break it to pick it up."
+    empty-seal: "<yellow>Put something in the box before sealing it."
+    sealed: "<green>Box sealed! Break it to pick it up as a parcel."
+    not-allowed: "<red>That can't go in a box (no shulker boxes, bundles or other mail)."
+    full-message: "<red>The box is full - 8 stacks is the most it holds."
+    full-sign: "<gold><bold>Box full"
   command:
     no-mailboxes: "<gray>You don't have any mailboxes yet."
     list-line: "<white><mailbox></white> <gray>- <count> waiting - <location>"
@@ -214,7 +234,7 @@ messages:
     help:
       - "<gold>PostOffice</gold>"
       - "<yellow>Letter</yellow>: paper + ink sac. Right-click to write, sneak + right-click to attach an item, then Put in envelope."
-      - "<yellow>Parcel</yellow>: planks/sticks/wheat around a stack (or an Empty Box + a stack)."
+      - "<yellow>Parcel</yellow>: Empty Box in the middle of up to 8 stacks, or place the box and fill it."
       - "<yellow>Mailbox</yellow>: place it to receive mail. Right-click to collect."
       - "<yellow>Drop-off</yellow>: right-click with mail to send it."
       - "<gray>/postoffice list</gray> - your mailboxes"

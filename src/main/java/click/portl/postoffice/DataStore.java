@@ -111,9 +111,11 @@ final class DataStore {
         if (s != null) for (String key : s.getKeys(false)) {
             ConfigurationSection p = s.getConfigurationSection(key);
             try {
+                List<String> contents = p.contains("contents") ? p.getStringList("contents")
+                        : (p.getString("payload") == null ? List.of() : List.of(p.getString("payload")));
                 parcels.put(UUID.fromString(key), new PlacedParcel(UUID.fromString(key), p.getString("world"),
                         p.getInt("x"), p.getInt("y"), p.getInt("z"), (float) p.getDouble("yaw"),
-                        p.getString("payload"), p.getBoolean("open")));
+                        contents, p.getBoolean("open")));
             } catch (RuntimeException e) {
                 plugin.getLogger().warning("Skipping broken parcel " + key + ": " + e);
             }
@@ -239,7 +241,7 @@ final class DataStore {
             y.set(k + "y", p.y);
             y.set(k + "z", p.z);
             y.set(k + "yaw", p.yaw);
-            y.set(k + "payload", p.payload);
+            y.set(k + "contents", new ArrayList<>(p.contents));
             y.set(k + "open", p.open);
         }
         write(new File(dir, "parcels.yml"), y.saveToString());

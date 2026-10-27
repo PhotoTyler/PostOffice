@@ -36,7 +36,6 @@ final class Recipes implements Listener {
 
     void register() {
         RecipeChoice planks = new RecipeChoice.MaterialChoice(Tag.PLANKS);
-        RecipeChoice anything = new RecipeChoice.MaterialChoice(MailItems.allItems());
 
         ShapelessRecipe letter = new ShapelessRecipe(Keys.RECIPE_LETTER, MailItems.blankLetter());
         letter.addIngredient(Material.PAPER);
@@ -47,18 +46,6 @@ final class Recipes implements Listener {
         box.setIngredient('P', planks);
         box.setIngredient('S', Material.STICK);
         box.setIngredient('W', Material.WHEAT);
-
-        // Real result is filled in by onPrepare (it depends on the centre item).
-        ShapedRecipe parcelChest = new ShapedRecipe(Keys.RECIPE_PARCEL_CHEST, MailItems.create(MailKind.PARCEL));
-        parcelChest.shape("PSP", "WXW", "PSP");
-        parcelChest.setIngredient('P', planks);
-        parcelChest.setIngredient('S', Material.STICK);
-        parcelChest.setIngredient('W', Material.WHEAT);
-        parcelChest.setIngredient('X', anything);
-
-        ShapelessRecipe parcelBox = new ShapelessRecipe(Keys.RECIPE_PARCEL_BOX, MailItems.create(MailKind.PARCEL));
-        parcelBox.addIngredient(RecipeChoice.exactChoice(MailItems.create(MailKind.EMPTY_BOX)));
-        parcelBox.addIngredient(anything);
 
         ShapedRecipe uk = new ShapedRecipe(Keys.RECIPE_MAILBOX_UK, MailItems.create(MailKind.MAILBOX_UK));
         uk.shape("IRI", "ICI", "III");
@@ -78,8 +65,11 @@ final class Recipes implements Listener {
         dropoff.setIngredient('I', Material.IRON_INGOT);
         dropoff.setIngredient('C', Material.CHEST);
 
-        List<Recipe> all = List.of(letter, box, parcelChest, parcelBox, uk, us, dropoff);
+        List<Recipe> all = List.of(letter, box, uk, us, dropoff);
         keys = all.stream().map(r -> ((Keyed) r).getKey()).toList();
+        // Packing parcels isn't a registered recipe (see onPrepare); drop the old ones from 1.x.
+        Bukkit.removeRecipe(Keys.RECIPE_PARCEL_CHEST, false);
+        Bukkit.removeRecipe(Keys.RECIPE_PARCEL_BOX, false);
         for (Recipe r : all) {
             Bukkit.removeRecipe(((Keyed) r).getKey(), false);
             Bukkit.addRecipe(r, false);
@@ -100,45 +90,30 @@ final class Recipes implements Listener {
         return r instanceof Keyed k ? k.getKey() : null;
     }
 
-    private static boolean isParcelRecipe(NamespacedKey key) {
-        return Keys.RECIPE_PARCEL_CHEST.equals(key) || Keys.RECIPE_PARCEL_BOX.equals(key);
-    }
-
-    /** Index of the item that goes into the parcel, or -1. */
-    private static int payloadIndex(ItemStack[] matrix, NamespacedKey key) {
-        if (Keys.RECIPE_PARCEL_CHEST.equals(key)) return matrix.length == 9 ? 4 : -1;
-        // Shapeless: one empty box (skipped once) + one other item
-        int found = -1;
-        boolean boxSeen = false;
-        for (int i = 0; i < matrix.length; i++) {
-            ItemStack it = matrix[i];
-            if (ItemCodec.isEmpty(it)) continue;
-            if (!boxSeen && MailItems.kind(it) == MailKind.EMPTY_BOX) {
-                boxSeen = true;
-                continue;
-            }
-            if (found != -1) return -1;
-            found = i;
+    /**
+     * Packing: an Empty Box in the middle of the crafting table with 1-8 item stacks around it.
+     * Returns the parcel, or null if the grid isn't that pattern.
+     */
+    private static ItemStack packedParcel(ItemStack[] matrix) {
+        if (matrix.length != 9 || MailItems.kind(matrix[4]) != MailKind.EMPTY_BOX) return null;
+        List<ItemStack> contents = new java.util.ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            if (i == 4 || ItemCodec.isEmpty(matrix[i])) continue;
+            if (!MailItems.allowedInParcel(matrix[i])) return null;
+            contents.add(matrix[i].clone());
         }
-        return boxSeen ? found : -1;
-    }
-
-    private ItemStack parcelResult(ItemStack[] matrix, NamespacedKey key) {
-        int idx = payloadIndex(matrix, key);
-        if (idx < 0) return null;
-        ItemStack payload = matrix[idx];
-        if (ItemCodec.isEmpty(payload) || !MailItems.allowedInParcel(payload)) return null;
-        return MailItems.parcel(payload.clone(), null);
+        return contents.isEmpty() ? null : MailItems.parcel(contents, null);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPrepare(PrepareItemCraftEvent e) {
         CraftingInventory inv = e.getInventory();
-        NamespacedKey key = e.getRecipe() == null ? null : keyOf(e.getRecipe());
-        if (isParcelRecipe(key)) {
-            inv.setResult(parcelResult(inv.getMatrix(), key));
+        ItemStack packed = packedParcel(inv.getMatrix());
+        if (packed != null) {
+            inv.setResult(packed);
             return;
         }
+        NamespacedKey key = e.getRecipe() == null ? null : keyOf(e.getRecipe());
         if (key != null && key.getNamespace().equals(Keys.NS)) return;
         for (ItemStack it : inv.getMatrix()) {
             if (MailItems.kind(it) != null) {
@@ -146,6 +121,40 @@ final class Recipes implements Listener {
                 return;
             }
         }
+    }
+
+    /** Taking a packed parcel uses up whole stacks (and one box), so it's done by hand here. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onTakePacked(org.bukkit.event.inventory.InventoryClickEvent e) {
+        if (!(e.getInventory() instanceof CraftingInventory inv) || e.getSlotType() != org.bukkit.event.inventory.InventoryType.SlotType.RESULT) return;
+        ItemStack[] matrix = inv.getMatrix();
+        ItemStack result = packedParcel(matrix);
+        if (result == null) return;
+        e.setCancelled(true);
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+        ClickType click = e.getClick();
+        if (click.isShiftClick()) {
+            if (player.getInventory().firstEmpty() == -1) return;
+            player.getInventory().addItem(result);
+        } else if (click == ClickType.LEFT || click == ClickType.RIGHT) {
+            if (!ItemCodec.isEmpty(e.getView().getCursor())) return;
+            e.getView().setCursor(result);
+        } else {
+            return;
+        }
+        for (int i = 0; i < 9; i++) {
+            if (i == 4) {
+                int left = matrix[4].getAmount() - 1;
+                if (left <= 0) matrix[4] = null;
+                else matrix[4].setAmount(left);
+            } else {
+                matrix[i] = null;
+            }
+        }
+        inv.setMatrix(matrix);
+        inv.setResult(packedParcel(matrix));
+        player.playSound(player.getLocation(), org.bukkit.Sound.ITEM_BUNDLE_INSERT, 1f, 1f);
+        Bukkit.getScheduler().runTask(plugin, player::updateInventory);
     }
 
     /** Anvils, smithing, grindstones, cartography tables... none of them get PostOffice items. */
@@ -159,44 +168,5 @@ final class Recipes implements Listener {
                 return;
             }
         }
-    }
-
-    /** Parcels take the whole centre stack, so crafting is done by hand here. */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onCraft(CraftItemEvent e) {
-        NamespacedKey key = keyOf(e.getRecipe());
-        if (!isParcelRecipe(key)) return;
-        e.setCancelled(true);
-        if (!(e.getWhoClicked() instanceof Player player)) return;
-        CraftingInventory inv = e.getInventory();
-        ItemStack[] matrix = inv.getMatrix();
-        int idx = payloadIndex(matrix, key);
-        ItemStack result = parcelResult(matrix, key);
-        if (result == null || idx < 0) return;
-
-        ClickType click = e.getClick();
-        if (click.isShiftClick()) {
-            if (player.getInventory().firstEmpty() == -1) return;
-            player.getInventory().addItem(result);
-        } else if (click == ClickType.LEFT || click == ClickType.RIGHT) {
-            if (!ItemCodec.isEmpty(e.getView().getCursor())) return;
-            e.getView().setCursor(result);
-        } else {
-            return;
-        }
-
-        for (int i = 0; i < matrix.length; i++) {
-            if (ItemCodec.isEmpty(matrix[i])) continue;
-            if (i == idx) {
-                matrix[i] = null;
-            } else {
-                int left = matrix[i].getAmount() - 1;
-                if (left <= 0) matrix[i] = null;
-                else matrix[i].setAmount(left);
-            }
-        }
-        inv.setMatrix(matrix);
-        inv.setResult(null);
-        Bukkit.getScheduler().runTask(plugin, player::updateInventory);
     }
 }

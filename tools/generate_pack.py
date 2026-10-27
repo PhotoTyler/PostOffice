@@ -583,6 +583,12 @@ def build_models():
     # Postman cap: the model's y = 8 sits on top of his head; the brim points forward (south)
     models["postman_cap"] = {
         "parent": "postoffice:item/block_base",
+        "display": {
+            **BLOCK_DISPLAY,
+            "head": {"rotation": [0, 180, 0], "translation": [0, 6.4, 0], "scale": [1.7, 1.7, 1.7]},
+            "gui": {"rotation": [30, 45, 0], "translation": [0, -4, 0], "scale": [1.1, 1.1, 1.1]},
+            "ground": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.6, 0.6, 0.6]},
+        },
         "textures": {"particle": tex("cap_side"), "side": tex("cap_side"), "front": tex("cap_front"),
                      "top": tex("cap_top"), "brim": tex("cap_brim")},
         "elements": [
@@ -619,6 +625,8 @@ BOOK_TEXT = {
     "book.sign.titlebox": "Your name",
     # The sign screen shows "by <player>" under the name; hide it so any name can be used.
     "book.byAuthor": "",
+    # The Postman (and village Postmen) are nitwit villagers wearing the postal uniform.
+    "entity.minecraft.villager.nitwit": "Postman",
 }
 
 

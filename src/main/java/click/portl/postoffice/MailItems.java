@@ -111,11 +111,14 @@ final class MailItems {
         return letter;
     }
 
-    static ItemStack parcel(ItemStack payload, String sender) {
+    /** A sealed parcel holding up to 8 item stacks. */
+    static ItemStack parcel(List<ItemStack> contents, String sender) {
+        List<String> data = new ArrayList<>();
+        for (ItemStack it : contents) if (!ItemCodec.isEmpty(it)) data.add(ItemCodec.encode(it));
         ItemStack item = create(MailKind.PARCEL);
         item.editMeta(m -> {
             PersistentDataContainer pdc = m.getPersistentDataContainer();
-            pdc.set(Keys.PAYLOAD, PersistentDataType.STRING, ItemCodec.encode(payload));
+            pdc.set(Keys.PAYLOADS, PersistentDataType.LIST.strings(), data);
             if (sender != null) pdc.set(Keys.SENDER, PersistentDataType.STRING, sender);
         });
         updateLore(item);
@@ -150,6 +153,23 @@ final class MailItems {
         return copy;
     }
 
+    /** The Postman's cap, dropped when a Postman dies: worn on the head. */
+    static ItemStack postmanCap() {
+        ItemStack cap = new ItemStack(Material.PAPER);
+        cap.editMeta(m -> {
+            m.setItemModel(Keys.model("postman_cap"));
+            m.itemName(Msg.item(plugin.getConfig().getString("items.postman_cap.name", "<blue>Postman's Cap")));
+            m.setMaxStackSize(1);
+            var eq = m.getEquippable();
+            eq.setSlot(org.bukkit.inventory.EquipmentSlot.HEAD);
+            m.setEquippable(eq);
+            List<Component> lore = new ArrayList<>();
+            for (String line : plugin.getConfig().getStringList("items.postman_cap.lore")) lore.add(Msg.item(line));
+            m.lore(lore);
+        });
+        return cap;
+    }
+
     // ---- reading / writing state ----
 
     static String sender(ItemStack item) {
@@ -173,12 +193,13 @@ final class MailItems {
         updateLore(item);
     }
 
-    static ItemStack payload(ItemStack parcel) {
-        return ItemCodec.decode(parcel.getItemMeta().getPersistentDataContainer().get(Keys.PAYLOAD, PersistentDataType.STRING));
-    }
-
-    static String payloadData(ItemStack parcel) {
-        return parcel.getItemMeta().getPersistentDataContainer().get(Keys.PAYLOAD, PersistentDataType.STRING);
+    /** Base64 stacks in a parcel (older parcels held a single stack). */
+    static List<String> contentsData(ItemStack parcel) {
+        PersistentDataContainer pdc = parcel.getItemMeta().getPersistentDataContainer();
+        List<String> list = pdc.get(Keys.PAYLOADS, PersistentDataType.LIST.strings());
+        if (list != null) return new ArrayList<>(list);
+        String single = pdc.get(Keys.PAYLOAD, PersistentDataType.STRING);
+        return single == null ? new ArrayList<>() : new ArrayList<>(List.of(single));
     }
 
     /** Letter text: from the book for an open letter, from the PDC for an envelope. */
@@ -220,8 +241,11 @@ final class MailItems {
         return !plugin.getConfig().getStringList("letters.blocked-attachments").contains(type);
     }
 
+    /** Boxes take any stack except storage items (shulker boxes, bundles) and other mail. */
     static boolean allowedInParcel(ItemStack item) {
         if (kind(item) != null) return false;
+        String type = item.getType().name();
+        if (type.endsWith("SHULKER_BOX") || type.endsWith("BUNDLE")) return false;
         return !plugin.getConfig().getStringList("parcels.blocked-items").contains(item.getType().name());
     }
 

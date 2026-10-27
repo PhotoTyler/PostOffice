@@ -72,18 +72,36 @@ final class PostmanListener implements Listener {
         e.setCancelled(true);
     }
 
+    /** Delivery Postman: his bag spills (only the senders are told), and his cap drops. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onDeath(EntityDeathEvent e) {
         if (!isPostman(e.getEntity())) return;
         e.getDrops().clear();
         e.setDroppedExp(0);
+        dropCap(e);
         Postman p = plugin.post().postmanOf(e.getEntity());
         if (p == null) return;
-        Player killer = e.getEntity().getKiller();
-        List<ItemStack> drops = plugin.post().spill(p, killer);
-        e.getDrops().addAll(drops);
+        e.getDrops().addAll(plugin.post().spill(p, e.getEntity().getKiller()));
         p.killed();
-        if (killer != null && !drops.isEmpty()) Msg.send(killer, "postman.killed", "count", String.valueOf(drops.size()));
+    }
+
+    /** Postmaster or a village Postman: the floating cap comes off and drops as a wearable cap. */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onOtherPostmanDeath(EntityDeathEvent e) {
+        var pdc = e.getEntity().getPersistentDataContainer();
+        if (isPostman(e.getEntity()) || !(pdc.has(Keys.CLERK) || pdc.has(Keys.TRADER))) return;
+        dropCap(e);
+    }
+
+    private void dropCap(EntityDeathEvent e) {
+        boolean hadCap = false;
+        for (Entity passenger : e.getEntity().getPassengers()) {
+            if (passenger instanceof org.bukkit.entity.ItemDisplay) {
+                passenger.remove();
+                hadCap = true;
+            }
+        }
+        if (hadCap && plugin.getConfig().getBoolean("postman.drop-cap", true)) e.getDrops().add(MailItems.postmanCap());
     }
 
     @EventHandler(priority = EventPriority.HIGH)

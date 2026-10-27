@@ -12,7 +12,8 @@ final class Keys {
     static NamespacedKey PAGES;       // sealed letter text
     static NamespacedKey SENDER;      // shown sender name (editable on letters)
     static NamespacedKey ATTACHMENT;  // Base64 item attached to a letter
-    static NamespacedKey PAYLOAD;     // Base64 item stack inside a parcel
+    static NamespacedKey PAYLOAD;     // Base64 item stack inside a parcel (old single-item parcels)
+    static NamespacedKey PAYLOADS;    // Base64 item stacks inside a parcel (up to 8)
     static NamespacedKey READ;        // sealed letter has been opened
     static NamespacedKey POSTMAN;     // tag on the Postman villager and its hat
     static NamespacedKey BLOCK_ID;    // tag on mailbox / drop-off display entities
@@ -38,6 +39,7 @@ final class Keys {
         SENDER = new NamespacedKey(plugin, "sender");
         ATTACHMENT = new NamespacedKey(plugin, "attachment");
         PAYLOAD = new NamespacedKey(plugin, "payload");
+        PAYLOADS = new NamespacedKey(plugin, "payloads");
         READ = new NamespacedKey(plugin, "read");
         POSTMAN = new NamespacedKey(plugin, "postman");
         BLOCK_ID = new NamespacedKey(plugin, "block_id");

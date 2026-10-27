@@ -72,7 +72,7 @@ final class WorldListener implements Listener {
                 e.setCancelled(true);
                 plugin.blocks().place(p, block, e.getBlockFace(), item, hand);
             }
-            case PARCEL -> {
+            case PARCEL, EMPTY_BOX -> {
                 if (onBlock && !canPlaceHere) return;
                 e.setCancelled(true);
                 if (onBlock) plugin.parcels().place(p, block, e.getBlockFace(), item, hand);

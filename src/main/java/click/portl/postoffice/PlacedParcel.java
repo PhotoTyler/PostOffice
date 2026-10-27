@@ -1,27 +1,29 @@
 package click.portl.postoffice;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 
-/** A parcel put down on the ground, waiting to be opened. */
+/** A box on the ground: open (being packed or unpacked) or sealed. */
 final class PlacedParcel {
     final UUID id;
     final String world;
     final int x, y, z;
     final float yaw;
-    final String payload; // Base64 ItemStack
+    final List<String> contents; // Base64 item stacks, at most Parcels.MAX
     boolean open;
 
-    PlacedParcel(UUID id, String world, int x, int y, int z, float yaw, String payload, boolean open) {
+    PlacedParcel(UUID id, String world, int x, int y, int z, float yaw, List<String> contents, boolean open) {
         this.id = id;
         this.world = world;
         this.x = x;
         this.y = y;
         this.z = z;
         this.yaw = yaw;
-        this.payload = payload;
+        this.contents = new ArrayList<>(contents);
         this.open = open;
     }
 

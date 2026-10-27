@@ -40,7 +40,7 @@ import org.joml.Vector3f;
  * hops a short way if he gets stuck, and keeps the chunks around him loaded while he works.
  */
 final class Postman {
-    private enum State { STARTING, WALKING, WAITING, TRAVELLING, ARRIVING, DONE }
+    private enum State { STARTING, WALKING, WAITING, VANISHING, TRAVELLING, ARRIVING, DONE }
 
     final UUID id = UUID.randomUUID();
     private final PostOfficePlugin plugin;
@@ -55,6 +55,9 @@ final class Postman {
     private Location exitSpot;       // walking away at the end
     private boolean vanishing;       // disappear as soon as nobody can see him
     private int vanishDeadline;      // ...or at this age regardless
+    private Location vanishFrom;     // he walks a little way first
+    private double vanishMinWalk;
+    private int animTicks;
     private List<Location> path;
     private int pathIndex;
     private int repathIn;
@@ -82,8 +85,8 @@ final class Postman {
         return plugin.getConfig().getDouble("postman." + key, def);
     }
 
-    private int stopTicks() {
-        return (int) (cfg("stop-seconds", 5) * 20);
+    private int stopTicks(boolean collecting) {
+        return (int) ((collecting ? cfg("collect-stop-seconds", 5) : cfg("deliver-stop-seconds", 2.5)) * 20);
     }
 
     // ---------------- lifecycle ----------------
@@ -213,10 +216,24 @@ final class Postman {
         if (hat != null && hat.isValid()) hat.setRotation(Displays.facing(villager.getYaw()), 0f);
         if (age % 10 == 0) syncTickets();
 
-        // Waiting to slip away unseen (before a long trip, or at the end of the round)
-        if (vanishing && age % 10 == 0 && (age >= vanishDeadline || !Sight.seen(villager.getLocation()))) {
-            vanish();
+        // Waiting to slip away unseen (before a long trip, or at the end of the round): he walks a
+        // little way first, then goes as soon as nobody's looking (or plays the vanish animation).
+        if (state == State.VANISHING) {
+            animate();
             return;
+        }
+        if (vanishing && age % 10 == 0) {
+            Location here = villager.getLocation();
+            boolean walkedEnough = vanishFrom == null || vanishFrom.getWorld() != here.getWorld()
+                    || vanishFrom.distanceSquared(here) >= vanishMinWalk * vanishMinWalk;
+            if (age >= vanishDeadline) {
+                vanishAnimated();
+                return;
+            }
+            if (walkedEnough && !Sight.seen(here)) {
+                vanish();
+                return;
+            }
         }
 
         switch (state) {
@@ -259,8 +276,8 @@ final class Postman {
         state = State.WALKING;
         double walk = cfg("walk-range", 50);
         if (here == null || !target.world.equals(here.getWorld().getName()) || best > walk * walk) {
-            // Too far to walk: head that way and vanish once nobody's looking.
-            startVanishing();
+            // Too far to walk: head that way, round a corner, and vanish once nobody's looking.
+            startVanishing(cfg("trip-walk-blocks", 10));
         }
     }
 
@@ -280,12 +297,42 @@ final class Postman {
         }
         path = null;
         state = State.WALKING;
-        startVanishing();
+        startVanishing(cfg("leave-walk-blocks", 8));
     }
 
-    private void startVanishing() {
+    private void startVanishing(double minWalk) {
         vanishing = true;
+        vanishFrom = villager != null ? villager.getLocation() : null;
+        vanishMinWalk = minWalk;
         vanishDeadline = age + (int) (cfg("vanish-timeout-seconds", 30) * 20);
+    }
+
+    /** Someone is still watching: spin away in a swirl of letters and smoke. */
+    private void vanishAnimated() {
+        if (villager == null || !Sight.seen(villager.getLocation())) {
+            vanish();
+            return;
+        }
+        vanishing = false;
+        state = State.VANISHING;
+        animTicks = 0;
+        villager.getWorld().playSound(villager.getLocation(), Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1f, 1.2f);
+    }
+
+    private void animate() {
+        animTicks++;
+        Location here = villager.getLocation();
+        here.setYaw(here.getYaw() + 36f);
+        move(here);
+        double a = animTicks * 0.6;
+        Location swirl = here.clone().add(Math.cos(a) * 0.7, 0.2 + animTicks * 0.09, Math.sin(a) * 0.7);
+        here.getWorld().spawnParticle(Particle.ITEM, swirl, 3, 0.05, 0.05, 0.05, 0.02, new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER));
+        here.getWorld().spawnParticle(Particle.END_ROD, swirl, 1, 0, 0, 0, 0.01);
+        if (animTicks >= 20) {
+            here.getWorld().spawnParticle(Particle.CLOUD, here.clone().add(0, 1, 0), 25, 0.3, 0.6, 0.3, 0.04);
+            here.getWorld().playSound(here, Sound.ENTITY_CHICKEN_EGG, 1f, 0.6f);
+            vanish();
+        }
     }
 
     private void vanish() {
@@ -320,7 +367,7 @@ final class Postman {
         }
         Location here = villager.getLocation();
         if (arrived(here)) {
-            if (exitSpot != null) finish();
+            if (exitSpot != null) vanishAnimated(); // out of sight already? then he just goes
             else atBox();
             return;
         }
@@ -506,6 +553,7 @@ final class Postman {
     private void atBox() {
         face(target.center());
         Location c = target.center();
+        int stop = stopTicks(collecting);
         if (collecting) {
             c.getWorld().playSound(c, Sound.ITEM_BUNDLE_INSERT, 1f, 0.9f);
         } else {
@@ -522,7 +570,7 @@ final class Postman {
         vanishing = false;
         path = null;
         state = State.WAITING;
-        wait = stopTicks();
+        wait = stop;
     }
 
     private void face(Location at) {
