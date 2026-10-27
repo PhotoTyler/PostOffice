@@ -94,6 +94,12 @@ final class Postman {
     /** Comes to collect the mail at a drop-off: appears out of sight nearby and walks over. */
     void start(Location dropoff) {
         PostBlock pb = plugin.blocks().at(dropoff.getBlock());
+        if (pb != null && pb.type.isMailbox()) {
+            // Mail that starts at a mailbox (add-ons): he just turns up near it and walks in.
+            target = pb;
+            arrive();
+            return;
+        }
         Location near = pb != null ? pb.center() : dropoff;
         Location spot = Sight.hiddenSpotNear(near, cfg("appear-min-distance", 16), cfg("appear-max-distance", 28));
         if (spot == null) spot = Spots.findSafe(pb != null ? plugin.blocks().front(pb) : dropoff, near.getY());

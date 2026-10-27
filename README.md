@@ -51,3 +51,20 @@ the pack at startup and on `/postoffice reload` to work out its SHA-1 itself, so
 pack you only need `/postoffice reload`.
 
 Not affiliated with Mojang or Microsoft.
+
+## Add-on: MysteryMail
+
+`MysteryMail/` is a separate small plugin (needs PostOffice). Every so often the Postman turns up
+near each player's mailbox with a letter holding a joke from a random mystery sender ("A Friendly
+Creeper", "A Sheep Named Gerald", ...). Now and then (8% by default) it's a mystery parcel with a
+random item instead.
+
+- Each joke is fetched fresh from [icanhazdadjoke.com](https://icanhazdadjoke.com/) (clean,
+  family-friendly). If the site can't be reached, a joke from the backup list in its `config.yml` is used.
+- `schedule.mode: real-time` = one every 30-45 minutes per player (default);
+  `minecraft-day` = one every Minecraft morning.
+- Players need a mailbox to get mystery mail.
+- `/mysterymail send <player> [letter|parcel]`, `/mysterymail joke`, `/mysterymail reload` (op).
+
+For other add-ons, `click.portl.postoffice.PostOfficeAPI` has `letter()`, `parcel()`,
+`hasMailbox()` and `deliver()`.

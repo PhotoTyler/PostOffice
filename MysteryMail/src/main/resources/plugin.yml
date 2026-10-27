@@ -1,0 +1,19 @@
+name: MysteryMail
+version: '${version}'
+main: click.portl.mysterymail.MysteryMail
+api-version: '26.2'
+depend: [PostOffice]
+description: PostOffice add-on. The Postman brings everyone a random joke letter now and then, and once in a while a mystery parcel.
+author: PhotoTyler
+commands:
+  mysterymail:
+    description: MysteryMail commands
+    usage: /mysterymail <send|joke|reload>
+    permission: mysterymail.admin
+permissions:
+  mysterymail.receive:
+    description: Get mystery mail
+    default: true
+  mysterymail.admin:
+    description: Send mystery mail now, preview jokes, reload
+    default: op

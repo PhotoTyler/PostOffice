@@ -1,0 +1,117 @@
+# MysteryMail - a PostOffice add-on.
+# Every so often the Postman brings each player a letter with a joke in it, from a random
+# mystery sender. Once in a while it's a mystery parcel with a random item instead.
+# Players need a mailbox to get mystery mail.
+
+schedule:
+  # real-time     = one letter every interval-minutes (plus a random extra bit), per player
+  # minecraft-day = one letter every Minecraft morning, to everyone in that world
+  mode: real-time
+  interval-minutes: 30
+  random-extra-minutes: 15
+  # Chance each time that anything comes at all (1.0 = always)
+  chance: 1.0
+  # Worlds where it can happen (empty = all)
+  worlds: []
+
+# Chance (0-1) that it's a mystery parcel instead of a letter
+parcel-chance: 0.08
+
+jokes:
+  # Fetch a new joke from the internet every time. If that fails, a joke from the list below is used.
+  fetch-online: true
+  # Any URL that returns JSON with "joke", or "setup" + "punchline"
+  # (icanhazdadjoke.com only has clean, family-friendly jokes)
+  url: "https://icanhazdadjoke.com/"
+  timeout-seconds: 5
+  # Backup jokes: "setup|punchline" (the punchline goes on the next page)
+  backup:
+    - "Why did the creeper cross the road?|To get to the other SSSSIDE!"
+    - "What do you call a cow with no legs?|Ground beef."
+    - "Why don't skeletons fight each other?|They don't have the guts."
+    - "What's a ghast's favourite food?|Ghast-ghetti."
+    - "Why did the chicken join a band?|Because it had the drumsticks."
+    - "What do you call a sleeping bull?|A bulldozer."
+    - "Why was the zombie so good at school?|He always used his brains."
+    - "What did the ocean say to the beach?|Nothing, it just waved."
+    - "How do you make an egg roll?|You push it."
+    - "Why did the cookie go to the doctor?|It was feeling crumby."
+    - "What do you call a pig that does karate?|A pork chop."
+    - "Why can't a bicycle stand up by itself?|It's two tired."
+    - "What do you call a fish with no eyes?|A fsh."
+    - "Why did the scarecrow win an award?|He was outstanding in his field."
+    - "What kind of tree fits in your hand?|A palm tree."
+    - "Why did the sheep say 'moo'?|It was learning a new language."
+    - "What's an Enderman's favourite game?|Hide and peek."
+    - "Why did the miner bring a ladder?|He heard the prices were going up."
+    - "What do you call a bear with no teeth?|A gummy bear."
+    - "Why don't eggs tell jokes?|They'd crack each other up."
+    - "What has keys but can't open locks?|A piano."
+    - "Why was the math book sad?|It had too many problems."
+    - "What do you call a dinosaur that is sleeping?|A dino-snore."
+    - "Why did the golem go to therapy?|It had too much on its iron mind."
+    - "What do bees do when it's hot?|They take a swarm shower."
+    - "Why did the villager refuse to trade?|He was having a bad day... hmmm."
+    - "What did one wall say to the other wall?|I'll meet you at the corner."
+    - "Why are frogs so happy?|They eat whatever bugs them."
+    - "What do you call a snowman in summer?|A puddle."
+    - "Why did the boat go to school?|To get a little more ship-shape."
+    - "What did the zero say to the eight?|Nice belt!"
+    - "Why don't oysters share their pearls?|Because they're shellfish."
+    - "What's a pirate's favourite letter?|You'd think it's R, but it's the C."
+    - "Why did the slime get invited to every party?|It really knew how to bounce."
+    - "What do you call a parrot that won't go away?|A Polly-stay."
+    - "Why did the torch get a promotion?|It was the brightest one there."
+
+# Who the letters say they're from (one is picked at random)
+senders:
+  - "A Secret Admirer"
+  - "A Friendly Creeper"
+  - "The Wandering Trader"
+  - "A Very Polite Zombie"
+  - "Your Biggest Fan"
+  - "A Sheep Named Gerald"
+  - "The Postman"
+  - "Someone Who Likes You"
+  - "A Mysterious Stranger"
+  - "Grandma Villager"
+  - "The Chicken Jockey"
+  - "An Enderman (Don't Look)"
+
+letter:
+  # <player> = who it's for, <setup>/<punchline> = the joke, <sender> = who it's from
+  # Page 1 and page 2 (if the joke has no punchline everything goes on page 1)
+  page1: "Dear <player>,\n\nHere's a joke for you:\n\n<setup>\n\n(turn the page!)"
+  page2: "<punchline>\n\n\nFrom,\n<sender>"
+  single: "Dear <player>,\n\nHere's a joke for you:\n\n<setup>\n\nFrom,\n<sender>"
+
+# Mystery parcel: one random item from this list (higher weight = more common)
+parcel:
+  sender: "A Mystery Sender"
+  loot:
+    - { item: COOKIE, min: 4, max: 16, weight: 20 }
+    - { item: CAKE, min: 1, max: 1, weight: 8 }
+    - { item: PUMPKIN_PIE, min: 2, max: 6, weight: 10 }
+    - { item: GOLDEN_CARROT, min: 2, max: 8, weight: 10 }
+    - { item: EMERALD, min: 1, max: 5, weight: 12 }
+    - { item: IRON_INGOT, min: 3, max: 10, weight: 12 }
+    - { item: GOLD_INGOT, min: 2, max: 6, weight: 8 }
+    - { item: DIAMOND, min: 1, max: 2, weight: 3 }
+    - { item: GOLDEN_APPLE, min: 1, max: 2, weight: 4 }
+    - { item: EXPERIENCE_BOTTLE, min: 4, max: 12, weight: 8 }
+    - { item: NAME_TAG, min: 1, max: 1, weight: 5 }
+    - { item: SADDLE, min: 1, max: 1, weight: 4 }
+    - { item: SUNFLOWER, min: 3, max: 8, weight: 8 }
+    - { item: FIREWORK_ROCKET, min: 8, max: 16, weight: 8 }
+    - { item: MUSIC_DISC_CAT, min: 1, max: 1, weight: 2 }
+    - { item: ENDER_PEARL, min: 2, max: 4, weight: 4 }
+    - { item: TOTEM_OF_UNDYING, min: 1, max: 1, weight: 1 }
+
+messages:
+  # Shown to the player when mystery mail is sent (blank = say nothing; PostOffice tells them when it arrives)
+  on-the-way: "<gray><i>You hear a bicycle bell in the distance... the Postman has something for you.</i>"
+  sent: "<green>Mystery <kind> sent to <player>."
+  no-mailbox: "<red><player> doesn't have a mailbox."
+  not-found: "<red>No online player called <player>."
+  reloaded: "<green>MysteryMail reloaded."
+  usage: "<yellow>/mysterymail send <player> [letter|parcel]</yellow> <gray>|</gray> <yellow>/mysterymail joke</yellow> <gray>|</gray> <yellow>/mysterymail reload"
