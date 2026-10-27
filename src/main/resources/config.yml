@@ -2,7 +2,7 @@
 
 resource-pack:
   # Where players download the textures from (the zip built by GitHub Actions and hosted on GitHub Pages).
-  url: "https://portl.click/PostOffice/PostOffice-pack.zip"
+  url: "https://phototyler.github.io/PostOffice/PostOffice-pack.zip"
   # Leave empty: the plugin downloads the pack at startup / on /postoffice reload and works out the hash itself.
   sha1: ""
   send-on-join: true

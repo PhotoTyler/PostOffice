@@ -41,7 +41,7 @@ library only) into `resourcepack/`; edit and re-run it to change them.
 
 ## Texture pack hosting
 
-Every push to `main` builds the pack and publishes it to GitHub Pages. Set `resource-pack.url` in
+Every push to `main` builds the pack and publishes it to GitHub Pages. The default `resource-pack.url` (`https://phototyler.github.io/PostOffice/PostOffice-pack.zip`) points there; change it in
 `plugins/PostOffice/config.yml` to the Pages address of `PostOffice-pack.zip`. The plugin downloads
 the pack at startup and on `/postoffice reload` to work out its SHA-1 itself, so after updating the
 pack you only need `/postoffice reload`.
