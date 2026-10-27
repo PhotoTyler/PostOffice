@@ -1,0 +1,42 @@
+{
+  "parent": "postoffice:item/block_base",
+  "textures": {
+    "particle": "postoffice:block/cardboard_side",
+    "flap": "postoffice:block/cardboard_flap",
+    "in": "postoffice:block/cardboard_inside"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        10,
+        2
+      ],
+      "to": [
+        14,
+        10.5,
+        8
+      ],
+      "faces": {
+        "north": {
+          "texture": "#flap"
+        },
+        "south": {
+          "texture": "#flap"
+        },
+        "east": {
+          "texture": "#flap"
+        },
+        "west": {
+          "texture": "#flap"
+        },
+        "up": {
+          "texture": "#flap"
+        },
+        "down": {
+          "texture": "#in"
+        }
+      }
+    }
+  ]
+}

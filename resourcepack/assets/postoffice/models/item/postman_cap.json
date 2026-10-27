@@ -1,0 +1,108 @@
+{
+  "parent": "postoffice:item/block_base",
+  "textures": {
+    "particle": "postoffice:block/cap_side",
+    "side": "postoffice:block/cap_side",
+    "front": "postoffice:block/cap_front",
+    "top": "postoffice:block/cap_top",
+    "brim": "postoffice:block/cap_brim"
+  },
+  "elements": [
+    {
+      "from": [
+        3.75,
+        8,
+        3.75
+      ],
+      "to": [
+        12.25,
+        11,
+        12.25
+      ],
+      "faces": {
+        "north": {
+          "texture": "#side"
+        },
+        "south": {
+          "texture": "#front"
+        },
+        "east": {
+          "texture": "#side"
+        },
+        "west": {
+          "texture": "#side"
+        },
+        "up": {
+          "texture": "#top"
+        },
+        "down": {
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "from": [
+        4.25,
+        11,
+        4.25
+      ],
+      "to": [
+        11.75,
+        11.5,
+        11.75
+      ],
+      "faces": {
+        "north": {
+          "texture": "#top"
+        },
+        "south": {
+          "texture": "#top"
+        },
+        "east": {
+          "texture": "#top"
+        },
+        "west": {
+          "texture": "#top"
+        },
+        "up": {
+          "texture": "#top"
+        },
+        "down": {
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "from": [
+        4.5,
+        8,
+        12.25
+      ],
+      "to": [
+        11.5,
+        8.5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#brim"
+        },
+        "south": {
+          "texture": "#brim"
+        },
+        "east": {
+          "texture": "#brim"
+        },
+        "west": {
+          "texture": "#brim"
+        },
+        "up": {
+          "texture": "#brim"
+        },
+        "down": {
+          "texture": "#brim"
+        }
+      }
+    }
+  ]
+}

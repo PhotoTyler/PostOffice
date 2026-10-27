@@ -1,0 +1,108 @@
+{
+  "parent": "postoffice:item/block_base",
+  "textures": {
+    "particle": "postoffice:block/red_paint",
+    "red": "postoffice:block/red_paint",
+    "dark": "postoffice:block/red_paint_dark",
+    "front": "postoffice:block/uk_front",
+    "black": "postoffice:block/black_paint"
+  },
+  "elements": [
+    {
+      "from": [
+        3,
+        3,
+        0
+      ],
+      "to": [
+        13,
+        13,
+        6
+      ],
+      "faces": {
+        "north": {
+          "texture": "#red"
+        },
+        "south": {
+          "texture": "#front"
+        },
+        "east": {
+          "texture": "#red"
+        },
+        "west": {
+          "texture": "#red"
+        },
+        "up": {
+          "texture": "#red"
+        },
+        "down": {
+          "texture": "#red"
+        }
+      }
+    },
+    {
+      "from": [
+        2.5,
+        13,
+        0
+      ],
+      "to": [
+        13.5,
+        15,
+        7
+      ],
+      "faces": {
+        "north": {
+          "texture": "#dark"
+        },
+        "south": {
+          "texture": "#dark"
+        },
+        "east": {
+          "texture": "#dark"
+        },
+        "west": {
+          "texture": "#dark"
+        },
+        "up": {
+          "texture": "#dark"
+        },
+        "down": {
+          "texture": "#dark"
+        }
+      }
+    },
+    {
+      "from": [
+        3.5,
+        2,
+        0
+      ],
+      "to": [
+        12.5,
+        3,
+        5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#black"
+        },
+        "south": {
+          "texture": "#black"
+        },
+        "east": {
+          "texture": "#black"
+        },
+        "west": {
+          "texture": "#black"
+        },
+        "up": {
+          "texture": "#black"
+        },
+        "down": {
+          "texture": "#black"
+        }
+      }
+    }
+  ]
+}

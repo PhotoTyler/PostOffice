@@ -1,0 +1,170 @@
+# PostOffice config. Text uses MiniMessage: https://docs.advntr.dev/minimessage/format.html
+
+resource-pack:
+  # Where players download the textures from (the zip built by GitHub Actions and hosted on GitHub Pages).
+  url: "https://portl.click/PostOffice/PostOffice-pack.zip"
+  # Leave empty: the plugin downloads the pack at startup / on /postoffice reload and works out the hash itself.
+  sha1: ""
+  send-on-join: true
+  # true = players who decline the pack are disconnected.
+  required: false
+
+postman:
+  display-name: "<gold>Postman"
+  # Name used in his chat messages.
+  name: "Postman"
+  profession: cartographer
+  # Wear the little postman cap from the resource pack.
+  hat: true
+  # Moves the cap up/down on his head (blocks).
+  hat-offset: 0.02
+  # Blocks moved per tick while walking (0.17 ≈ a normal villager stroll).
+  speed: 0.17
+  # Mail waits this long at a drop-off so several letters go out together.
+  dispatch-delay-seconds: 8
+  max-active: 10
+  # Mailboxes further than this from him (or in another world) are reached by "the post road":
+  # he disappears and turns up near the mailbox after a short trip.
+  walk-distance: 96
+  travel-blocks-per-second: 25
+  min-travel-seconds: 3
+  max-travel-seconds: 45
+  arrive-distance: 10
+  # Safety net: after this long, whatever he still carries is delivered straight away.
+  max-lifetime-seconds: 600
+  # Players can kill the Postman and steal what he's carrying.
+  killable: true
+  dialogue:
+    - "I deliver the mail around here! Use a <yellow>Drop-off postbox</yellow> to send a letter or parcel."
+    - "Write a letter with paper and black dye, then post it at a <yellow>Drop-off</yellow>. I'll do the walking!"
+    - "Parcels? Put up to a whole stack in a cardboard box and I'll carry it to any mailbox."
+    - "Got a mailbox yet, <player>? Craft one, place it, and people can send you things."
+    - "Rain or shine, the post gets through. Mostly."
+
+mailbox:
+  default-name: "Mailbox <number>"
+  hologram-height: 0.95
+
+letters:
+  # Material names that can't be attached to a letter (shulker boxes and bundles are always blocked).
+  blocked-attachments: []
+
+parcels:
+  # Material names that can't be put in a parcel (other mail is always blocked).
+  blocked-items: []
+
+items:
+  letter:
+    name: "<white>Letter"
+    lore:
+      - "<gray>Write in it like a Book & Quill."
+      - "<gray>Sneak + right-click to attach an item"
+      - "<gray>or change the sender name."
+      - "<gray>Post it at a <yellow>Drop-off</yellow>."
+  sealed_letter:
+    name: "<white>Sealed Letter"
+    lore:
+      - "<gray>Right-click to read."
+  parcel:
+    name: "<gold>Parcel"
+    lore:
+      - "<gray>Post it at a <yellow>Drop-off</yellow>, or place it"
+      - "<gray>on the ground and right-click to open."
+  empty_box:
+    name: "<gold>Empty Box"
+    lore:
+      - "<gray>Craft it with an item stack to pack a parcel."
+  mailbox_uk:
+    name: "<red>Wall Mailbox"
+    lore:
+      - "<gray>Place it, then people can send you mail."
+      - "<gray>Right-click: collect mail. Sneak: rename."
+      - "<gray>Rename it in an anvil to name it."
+  mailbox_us:
+    name: "<blue>Standing Mailbox"
+    lore:
+      - "<gray>Place it, then people can send you mail."
+      - "<gray>Right-click: collect mail. Sneak: rename."
+      - "<gray>Rename it in an anvil to name it."
+  dropoff:
+    name: "<red>Drop-off Postbox"
+    lore:
+      - "<gray>A public postbox for sending mail."
+      - "<gray>Right-click it holding a letter or parcel."
+  lore:
+    from: "<gray>From: <white><sender>"
+    attached: "<gray>Attached: <yellow><item>"
+    something-inside: "<gold>Something is tucked inside..."
+    opened: "<dark_gray>Opened"
+
+messages:
+  prefix: "<dark_red>[<red>Post</red>]</dark_red> "
+  postman-prefix: "<gold>[<name>]</gold> <white>"
+  no-permission: "<red>You can't do that."
+  prompt:
+    cancelled: "<gray>Cancelled."
+  resource-pack:
+    prompt: "<gold>PostOffice</gold> uses a small texture pack for letters, parcels and mailboxes."
+  postman:
+    delivered: "Hi <player>, I've just delivered your mail to <yellow><mailbox></yellow>!"
+    killed: "<red>The Postman drops his bag... <count> item(s) spill out!"
+  mailbox:
+    placed: "<green>Mailbox <white><mailbox></white> placed! <gray>Sneak + right-click it to rename."
+    not-yours: "<gray>That's <white><owner></white>'s mailbox <white><mailbox></white>."
+    collect-first: "<red>Collect the <count> item(s) inside first."
+    empty: "<gray><mailbox> is empty."
+    collected: "<green>You collected <white><count></white> item(s) from <white><mailbox></white>."
+    inventory-full: "<yellow><count> item(s) didn't fit and are still in the mailbox."
+    hologram: "<gold><bold>✉ New Mail!</bold></gold> <white>(<count>)"
+    menu-title: "<dark_gray>Mailbox: <mailbox>"
+    rename-prompt: "<yellow>Type the new mailbox name in chat <gray>(or 'cancel')."
+    renamed: "<green>Mailbox renamed to <white><mailbox></white>."
+    join-notice: "<gold>You've got mail! <white><mailboxes>"
+  dropoff:
+    placed: "<green>Drop-off postbox placed. Anyone can post mail here."
+    not-yours: "<gray>Only the person who placed this postbox can remove it."
+    hint: "<gray>Hold a <white>letter</white> or <white>parcel</white> and right-click to post it."
+  send:
+    title-players: "<dark_gray>Send to who?"
+    title-mailboxes: "<dark_gray><player>'s mailboxes"
+    online: "<green>Online"
+    offline: "<gray>Offline"
+    mailbox-count: "<gray>Mailboxes: <white><count>"
+    click-player: "<yellow>Click to choose"
+    click-mailbox: "<yellow>Click to select"
+    selected: "<green>Selected"
+    nobody: "<gray>Nobody has a mailbox yet! Craft one and place it first."
+    mailbox-gone: "<red>That mailbox doesn't exist any more."
+    item-moved: "<red>Keep the letter or parcel in your hand while you choose."
+    posted: "<green>Your <item> to <white><player></white> (<white><mailbox></white>) is in the post! <gray>The Postman will collect it shortly."
+    delivered: "<green>Your mail was delivered to <white><player></white>'s <white><mailbox></white>."
+    stolen: "<red>Oh no! Someone attacked the Postman and your mail for <player> was lost!"
+    returning: "<yellow><player> has no mailbox any more, so your mail is coming back to you."
+    returned: "<yellow>The Postman returned <count> undeliverable item(s) to you."
+  letter:
+    attach-title: "<dark_gray>Letter"
+    read-title: "<dark_gray>Letter"
+    sender-prompt: "<yellow>Type the sender name for this letter in chat <gray>(or 'cancel')."
+    sender-set: "<green>Sender name set to <white><sender></white>."
+    not-allowed: "<red>That item can't go in a letter. Use a parcel instead!"
+    only-one: "<yellow>Letters can only hold one item - the rest went back to your inventory."
+    attached: "<green>Attached <white><item></white> to the letter."
+    no-room: "<red>Make some room in your inventory first."
+    claimed: "<green>You took <white><item></white> from the letter."
+  parcel:
+    hint: "<gray>Place the parcel on the ground and right-click it to open it."
+    claimed: "<green>You unpacked <white><count>x <item></white>."
+  command:
+    no-mailboxes: "<gray>You don't have any mailboxes yet."
+    list-line: "<white><mailbox></white> <gray>- <count> waiting - <location>"
+    given: "<green>Gave <count>x <item> to <player>."
+    reloaded: "<green>PostOffice reloaded."
+    status: "<gray>Postmen out: <white><postmen></white>, mail in the post: <white><queued></white>"
+    help:
+      - "<gold>PostOffice</gold>"
+      - "<yellow>Letter</yellow>: paper + black dye. Write in it; sneak + right-click to attach one item."
+      - "<yellow>Parcel</yellow>: planks/sticks/wheat around a stack (or an Empty Box + a stack)."
+      - "<yellow>Mailbox</yellow>: place it to receive mail. Right-click to collect."
+      - "<yellow>Drop-off</yellow>: right-click with mail to send it."
+      - "<gray>/postoffice list</gray> - your mailboxes"
+      - "<gray>/postoffice pack</gray> - re-send the texture pack"

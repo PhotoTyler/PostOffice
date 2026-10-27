@@ -1,0 +1,24 @@
+name: PostOffice
+version: '${version}'
+main: click.portl.postoffice.PostOfficePlugin
+api-version: '26.2'
+description: Letters, parcels, mailboxes and a Postman villager who walks your mail to its destination.
+author: PhotoTyler
+commands:
+  postoffice:
+    description: PostOffice commands
+    aliases: [post, mail]
+    usage: /postoffice help
+permissions:
+  postoffice.use:
+    description: Send and receive mail
+    default: true
+  postoffice.place.mailbox:
+    description: Place mailboxes
+    default: true
+  postoffice.place.dropoff:
+    description: Place public drop-off postboxes
+    default: true
+  postoffice.admin:
+    description: Give items, reload, break anyone's boxes
+    default: op
