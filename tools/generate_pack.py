@@ -585,7 +585,8 @@ def build_models():
         "parent": "postoffice:item/block_base",
         "display": {
             **BLOCK_DISPLAY,
-            "head": {"rotation": [0, 180, 0], "translation": [0, 6.4, 0], "scale": [1.7, 1.7, 1.7]},
+            # Worn: the crown fits over the top of the head (about 2.5 px down), peak at the forehead.
+            "head": {"rotation": [0, 180, 0], "translation": [0, 2.4, 0], "scale": [1.75, 1.75, 1.75]},
             "gui": {"rotation": [30, 45, 0], "translation": [0, -4, 0], "scale": [1.1, 1.1, 1.1]},
             "ground": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.6, 0.6, 0.6]},
         },
