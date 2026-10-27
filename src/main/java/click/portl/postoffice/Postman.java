@@ -58,6 +58,8 @@ final class Postman {
     private List<Location> path;
     private int pathIndex;
     private int repathIn;
+    private int pathFails;     // routes that came back empty in a row
+    private int retryAt;       // age to try routing again after a failure
     private Location lastProgress;
     private int stuck;
     private int wait;
@@ -108,7 +110,7 @@ final class Postman {
         w.getChunkAt(at); // make sure it's loaded
         villager = w.spawn(at, Villager.class, v -> {
             dress(plugin, v, plugin.getConfig().getString("postman.display-name", "<gold>Postman"), false);
-            v.setGravity(false);
+            // Gravity stays on: Paper's pathfinder only plans routes for mobs standing on the ground.
             v.getPersistentDataContainer().set(Keys.POSTMAN, PersistentDataType.STRING, id.toString());
         });
         hat = addCap(plugin, villager, Keys.POSTMAN, id.toString(), false);
@@ -219,6 +221,8 @@ final class Postman {
 
         switch (state) {
             case WAITING -> {
+                // Stands at the box, facing it, for the whole stop.
+                if (target != null && wait % 20 == 0) face(target.center());
                 if (--wait <= 0) nextTarget();
             }
             case WALKING -> walk();
@@ -321,11 +325,19 @@ final class Postman {
             return;
         }
         if (path == null || pathIndex >= path.size() || --repathIn <= 0) {
+            if (age < retryAt) return; // waiting before trying again
             repath(here);
             if (path == null) {
-                hop(here);
+                // No route right now (e.g. just landed): try again shortly; only hop if it keeps failing.
+                if (++pathFails >= 4) {
+                    pathFails = 0;
+                    hop(here);
+                } else {
+                    retryAt = age + 10;
+                }
                 return;
             }
+            pathFails = 0;
         }
         step(here);
 
