@@ -106,14 +106,15 @@ final class Traders implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEntityEvent e) {
-        if (!isTrader(e.getRightClicked())) return;
+        boolean wild = isWildPostman(e.getRightClicked());
+        if (!isTrader(e.getRightClicked()) && !wild) return;
         e.setCancelled(true);
         if (e.getHand() != EquipmentSlot.HAND) return;
         Player p = e.getPlayer();
         Villager v = (Villager) e.getRightClicked();
         if (v.getPersistentDataContainer().has(Keys.CLERK)) greet(p);
         Merchant m = Bukkit.createMerchant(v.customName() != null ? v.customName() : Msg.item("Postman"));
-        m.setRecipes(recipes());
+        m.setRecipes(wild ? randomRecipes(v) : recipes());
         p.openMerchant(m, true);
         v.getWorld().playSound(v.getLocation(), Sound.ENTITY_VILLAGER_TRADE, 1f, 1f);
     }
@@ -128,6 +129,24 @@ final class Traders implements Listener {
         String name = plugin.getConfig().getString("post-offices.clerk-name", "Postmaster");
         p.sendMessage(Msg.parse("<gold>[</gold>" + name + "<gold>]</gold> <white>").append(
                 Msg.parse(lines.get(ThreadLocalRandom.current().nextInt(lines.size())), "player", p.getName())));
+    }
+
+    /**
+     * Ordinary nitwits wear the postal uniform (from the pack) and are called Postman, but have no cap.
+     * They trade too: each has its own random few trades, the same every time, like normal villagers.
+     */
+    private boolean isWildPostman(Entity e) {
+        if (!(e instanceof Villager v) || !plugin.getConfig().getBoolean("village-postmen.wild-trading", true)) return false;
+        var pdc = v.getPersistentDataContainer();
+        return v.isAdult() && v.getProfession() == Villager.Profession.NITWIT
+                && !pdc.has(Keys.TRADER) && !pdc.has(Keys.CLERK) && !pdc.has(Keys.POSTMAN);
+    }
+
+    private List<MerchantRecipe> randomRecipes(Villager v) {
+        List<MerchantRecipe> all = new ArrayList<>(recipes());
+        java.util.Collections.shuffle(all, new java.util.Random(v.getUniqueId().getMostSignificantBits()));
+        int count = 3 + (int) Math.floorMod(v.getUniqueId().getLeastSignificantBits(), 3L); // 3 to 5
+        return new ArrayList<>(all.subList(0, Math.min(count, all.size())));
     }
 
     /** Trades from config: "cost" and "result" are "MATERIAL amount" or "postoffice:<item> amount". */

@@ -79,6 +79,9 @@ village-postmen:
   enabled: true
   radius: 3
   name: "<gold>Postman"
+  # Ordinary nitwit villagers (they wear the uniform too, without a cap) trade a random 3-5 of the
+  # trades below, the same ones each time.
+  wild-trading: true
   # cost (+ optional cost2) -> result. Items: a Minecraft material, or postoffice:<letter|empty_box|mailbox_uk|mailbox_us|dropoff>.
   trades:
     - {cost: "PAPER 24", result: "EMERALD 1"}

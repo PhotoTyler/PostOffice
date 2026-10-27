@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "click.portl"
-version = "1.7.0"
+version = "1.7.1"
 
 repositories {
     mavenCentral()
