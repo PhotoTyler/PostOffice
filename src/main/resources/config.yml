@@ -25,13 +25,19 @@ postman:
   # Mail waits this long at a drop-off so several letters go out together.
   dispatch-delay-seconds: 8
   max-active: 10
-  # Mailboxes further than this from him (or in another world) are reached by "the post road":
-  # he disappears and turns up near the mailbox after a short trip.
-  walk-distance: 96
+  # He walks to boxes within this many blocks. Further away (or in another world) he walks on until
+  # nobody can see him, vanishes, and reappears out of sight near the mailbox.
+  walk-range: 50
+  # How long he stands at the drop-off (collecting) and at each mailbox (delivering).
+  stop-seconds: 5
+  # He appears (to collect) and reappears (after a long trip) this far from the box, out of view.
+  appear-min-distance: 16
+  appear-max-distance: 28
+  # If someone keeps watching him, he vanishes anyway after this long.
+  vanish-timeout-seconds: 30
   travel-blocks-per-second: 25
   min-travel-seconds: 3
   max-travel-seconds: 45
-  arrive-distance: 10
   # Safety net: after this long, whatever he still carries is delivered straight away.
   max-lifetime-seconds: 600
   # Players can kill the Postman and steal what he's carrying.

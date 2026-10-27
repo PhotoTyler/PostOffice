@@ -79,7 +79,11 @@ final class MailItems {
 
     /** "Put in envelope": an open letter becomes a sealed envelope (same id, attachment kept). */
     static ItemStack seal(ItemStack letter, String from) {
-        ItemStack envelope = sealedLetter(pages(letter), from, attachment(letter));
+        return seal(letter, from, pages(letter));
+    }
+
+    static ItemStack seal(ItemStack letter, String from, List<String> pages) {
+        ItemStack envelope = sealedLetter(pages, from, attachment(letter));
         String id = uniqueId(letter);
         if (id != null) envelope.editMeta(m -> m.getPersistentDataContainer().set(Keys.UNIQUE, PersistentDataType.STRING, id));
         return envelope;

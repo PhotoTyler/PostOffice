@@ -613,10 +613,12 @@ def build_models():
 # instead of signing it) and the title box asks for the name on the envelope.
 BOOK_TEXT = {
     "book.signButton": "Put in envelope",
-    "book.editTitle": "Name on the envelope:",
+    "book.editTitle": "Enter your name:",
     "book.finalizeButton": "Seal envelope",
     "book.finalizeWarning": "You can open the envelope and reseal it any time.",
-    "book.sign.titlebox": "From",
+    "book.sign.titlebox": "Your name",
+    # The sign screen shows "by <player>" under the name; hide it so any name can be used.
+    "book.byAuthor": "",
 }
 
 

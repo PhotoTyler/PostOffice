@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -27,13 +28,19 @@ import org.joml.Vector3f;
 /**
  * One Postman villager and the mail in his bag.
  *
- * The villager's own AI is switched off (no wandering, sleeping, panicking or trading); instead he
- * follows paths from Paper's pathfinder, moved a little every tick. If he gets stuck he hops ahead,
- * and if a mailbox is far away (or in another world) he "takes the post road": vanishes and turns up
- * near the mailbox after a short delay. He keeps the chunks around him loaded while he works.
+ * <ol>
+ *   <li>He appears out of sight 16-28 blocks from the drop-off, walks over and collects the mail
+ *       (standing there a few seconds).</li>
+ *   <li>For each mailbox: within {@code walk-distance} (50) he walks; further away (or in another
+ *       world) he walks on until nobody can see him, vanishes, and reappears out of sight near the
+ *       mailbox, then walks the rest. He waits a few seconds at each mailbox.</li>
+ *   <li>Then he walks off and vanishes once he's out of view.</li>
+ * </ol>
+ * The villager's own AI is off; he follows paths from Paper's pathfinder, moved a little every tick,
+ * hops a short way if he gets stuck, and keeps the chunks around him loaded while he works.
  */
 final class Postman {
-    private enum State { STARTING, WALKING, DROPPING, TRAVELLING, ARRIVING, LEAVING, DONE }
+    private enum State { STARTING, WALKING, WAITING, TRAVELLING, ARRIVING, DONE }
 
     final UUID id = UUID.randomUUID();
     private final PostOfficePlugin plugin;
@@ -43,7 +50,11 @@ final class Postman {
     private Villager villager;
     private ItemDisplay hat;
     private State state = State.STARTING;
-    private PostBlock target;
+    private PostBlock target;        // box he's walking to (the drop-off first, then mailboxes)
+    private boolean collecting;      // target is the drop-off he's collecting from
+    private Location exitSpot;       // walking away at the end
+    private boolean vanishing;       // disappear as soon as nobody can see him
+    private int vanishDeadline;      // ...or at this age regardless
     private List<Location> path;
     private int pathIndex;
     private int repathIn;
@@ -69,19 +80,27 @@ final class Postman {
         return plugin.getConfig().getDouble("postman." + key, def);
     }
 
+    private int stopTicks() {
+        return (int) (cfg("stop-seconds", 5) * 20);
+    }
+
     // ---------------- lifecycle ----------------
 
+    /** Comes to collect the mail at a drop-off: appears out of sight nearby and walks over. */
     void start(Location dropoff) {
-        Block b = dropoff.getBlock();
-        PostBlock pb = plugin.blocks().at(b);
-        Location spot = pb != null ? plugin.blocks().front(pb) : dropoff;
-        Location safe = Spots.findSafe(spot, spot.getY());
-        if (safe == null) safe = Spots.findSafe(dropoff.clone().add(1, 0, 0), dropoff.getY());
-        if (safe == null) safe = dropoff.clone().add(0, 1, 0);
-        spawn(safe);
-        if (pb != null) face(pb.center());
-        poof(villager.getLocation());
-        nextTarget();
+        PostBlock pb = plugin.blocks().at(dropoff.getBlock());
+        Location near = pb != null ? pb.center() : dropoff;
+        Location spot = Sight.hiddenSpotNear(near, cfg("appear-min-distance", 16), cfg("appear-max-distance", 28));
+        if (spot == null) spot = Spots.findSafe(pb != null ? plugin.blocks().front(pb) : dropoff, near.getY());
+        if (spot == null) spot = dropoff.clone().add(0, 1, 0);
+        spawn(spot);
+        if (pb != null) {
+            target = pb;
+            collecting = true;
+            face(pb.center());
+        } else {
+            nextTarget();
+        }
     }
 
     private void spawn(Location at) {
@@ -136,16 +155,19 @@ final class Postman {
     }
 
     void despawnQuietly() {
+        despawnEntityOnly();
+        state = State.DONE;
+    }
+
+    private void despawnEntityOnly() {
         if (hat != null) hat.remove();
         if (villager != null) villager.remove();
         hat = null;
         villager = null;
         releaseTickets();
-        state = State.DONE;
     }
 
     private void finish() {
-        if (villager != null) poof(villager.getLocation());
         despawnQuietly();
         service.finished(this);
     }
@@ -180,7 +202,7 @@ final class Postman {
             return;
         }
         lastSeen = villager.getLocation();
-        if (age > cfg("max-lifetime-seconds", 600) * 20 && state != State.LEAVING) {
+        if (age > cfg("max-lifetime-seconds", 600) * 20 && exitSpot == null) {
             for (Delivery d : new ArrayList<>(bag)) service.deliver(d);
             bag.clear();
             leave();
@@ -189,12 +211,15 @@ final class Postman {
         if (hat != null && hat.isValid()) hat.setRotation(Displays.facing(villager.getYaw()), 0f);
         if (age % 10 == 0) syncTickets();
 
+        // Waiting to slip away unseen (before a long trip, or at the end of the round)
+        if (vanishing && age % 10 == 0 && (age >= vanishDeadline || !Sight.seen(villager.getLocation()))) {
+            vanish();
+            return;
+        }
+
         switch (state) {
-            case DROPPING -> {
+            case WAITING -> {
                 if (--wait <= 0) nextTarget();
-            }
-            case LEAVING -> {
-                if (--wait <= 0) finish();
             }
             case WALKING -> walk();
             default -> {}
@@ -203,6 +228,7 @@ final class Postman {
 
     private void nextTarget() {
         target = null;
+        collecting = false;
         double best = Double.MAX_VALUE;
         Location here = villager != null ? villager.getLocation() : lastSeen;
         for (Delivery d : new ArrayList<>(bag)) {
@@ -225,35 +251,73 @@ final class Postman {
         }
         path = null;
         stuck = 0;
-        double walk = cfg("walk-distance", 96);
+        vanishing = false;
+        state = State.WALKING;
+        double walk = cfg("walk-range", 50);
         if (here == null || !target.world.equals(here.getWorld().getName()) || best > walk * walk) {
-            travel();
-        } else {
-            state = State.WALKING;
+            // Too far to walk: head that way and vanish once nobody's looking.
+            startVanishing();
         }
     }
 
+    /** All delivered: walk off and disappear out of sight. */
     private void leave() {
-        state = State.LEAVING;
-        wait = 30;
-        if (villager != null) villager.getWorld().playSound(villager.getLocation(), Sound.ENTITY_VILLAGER_CELEBRATE, 1f, 1f);
+        target = null;
+        collecting = false;
+        if (villager == null) {
+            finish();
+            return;
+        }
+        villager.getWorld().playSound(villager.getLocation(), Sound.ENTITY_VILLAGER_CELEBRATE, 1f, 1f);
+        exitSpot = Sight.hiddenSpotNear(villager.getLocation(), 20, 32);
+        if (exitSpot == null) {
+            finish();
+            return;
+        }
+        path = null;
+        state = State.WALKING;
+        startVanishing();
+    }
+
+    private void startVanishing() {
+        vanishing = true;
+        vanishDeadline = age + (int) (cfg("vanish-timeout-seconds", 30) * 20);
+    }
+
+    private void vanish() {
+        vanishing = false;
+        if (exitSpot != null || target == null) {
+            finish();
+        } else {
+            travel();
+        }
     }
 
     // ---------------- walking ----------------
 
+    private Location goal() {
+        return exitSpot != null ? exitSpot : target.center();
+    }
+
     private boolean arrived(Location here) {
-        Location c = target.center();
+        Location c = goal();
         double dx = here.getX() - c.getX(), dz = here.getZ() - c.getZ();
-        return dx * dx + dz * dz <= 2.4 * 2.4 && Math.abs(here.getY() - target.y) <= 2.5;
+        double reach = exitSpot != null ? 1.5 : 2.4;
+        return dx * dx + dz * dz <= reach * reach && Math.abs(here.getY() - c.getY()) <= 2.5;
     }
 
     private void walk() {
-        if (!target.isLoaded() && villager.getLocation().distanceSquared(target.center()) < 64 * 64) {
+        if (exitSpot == null && target == null) {
+            leave();
+            return;
+        }
+        if (target != null && !target.isLoaded() && villager.getLocation().distanceSquared(target.center()) < 64 * 64) {
             target.bukkitWorld().getChunkAt(target.x >> 4, target.z >> 4);
         }
         Location here = villager.getLocation();
         if (arrived(here)) {
-            dropOff();
+            if (exitSpot != null) finish();
+            else atBox();
             return;
         }
         if (path == null || pathIndex >= path.size() || --repathIn <= 0) {
@@ -276,11 +340,15 @@ final class Postman {
     }
 
     private void repath(Location here) {
-        Location goal = target.center();
+        Location goal = goal();
+        if (goal.getWorld() != here.getWorld()) {
+            path = null;
+            return;
+        }
         double dist = here.distance(goal);
         Location dest;
         if (dist <= 24) {
-            dest = plugin.blocks().front(target);
+            dest = exitSpot != null ? exitSpot : plugin.blocks().front(target);
         } else {
             Vector dir = goal.toVector().subtract(here.toVector()).setY(0).normalize().multiply(20);
             Location ahead = here.clone().add(dir);
@@ -353,19 +421,24 @@ final class Postman {
 
     /** Stuck or no path: jump a bit closer with a puff of smoke. */
     private void hop(Location here) {
-        Location goal = target.center();
+        Location goal = goal();
+        if (goal.getWorld() != here.getWorld()) {
+            vanish();
+            return;
+        }
         Location to;
         if (here.distanceSquared(goal) <= 14 * 14) {
-            to = Spots.findSafe(plugin.blocks().front(target), target.y);
+            to = exitSpot != null ? exitSpot.clone() : Spots.findSafe(plugin.blocks().front(target), target.y);
         } else {
             Vector dir = goal.toVector().subtract(here.toVector()).setY(0).normalize().multiply(12);
             Location ahead = here.clone().add(dir);
             double refY = here.getY() + (goal.getY() - here.getY()) * (12 / here.distance(goal));
             to = Spots.findSafe(ahead, refY);
         }
-        if (to == null) to = Spots.findSafe(goal.clone().add(1, -0.5, 0), target.y);
+        if (to == null && target != null) to = Spots.findSafe(goal.clone().add(1, -0.5, 0), target.y);
         if (to == null) {
-            dropOff(); // nowhere to stand at all: post it anyway
+            if (exitSpot != null) finish();
+            else atBox(); // nowhere to stand at all: post it anyway
             return;
         }
         poof(here);
@@ -379,12 +452,10 @@ final class Postman {
 
     // ---------------- long trips ----------------
 
+    /** Gone (out of sight): reappear near the target after a short trip. */
     private void travel() {
         Location from = villager != null ? villager.getLocation() : lastSeen;
-        if (villager != null) {
-            poof(from);
-            despawnEntityOnly();
-        }
+        despawnEntityOnly();
         double dist = from != null && from.getWorld().getName().equals(target.world) ? from.distance(target.center()) : 500;
         double secs = Math.max(cfg("min-travel-seconds", 3), Math.min(cfg("max-travel-seconds", 45),
                 dist / cfg("travel-blocks-per-second", 25)));
@@ -392,14 +463,7 @@ final class Postman {
         state = State.TRAVELLING;
     }
 
-    private void despawnEntityOnly() {
-        if (hat != null) hat.remove();
-        if (villager != null) villager.remove();
-        hat = null;
-        villager = null;
-        releaseTickets();
-    }
-
+    /** Reappears 16-28 blocks from the mailbox, somewhere no player is looking, and walks in. */
     private void arrive() {
         PostBlock box = target;
         if (box == null || box.bukkitWorld() == null) {
@@ -407,39 +471,46 @@ final class Postman {
             return;
         }
         state = State.ARRIVING;
-        Location goal = box.center();
-        Vector dir = lastSeen != null && lastSeen.getWorld() == goal.getWorld()
-                ? lastSeen.toVector().subtract(goal.toVector()).setY(0)
-                : new Vector(Math.random() - 0.5, 0, Math.random() - 0.5);
-        if (dir.lengthSquared() < 0.01) dir = new Vector(1, 0, 0);
-        Location near = goal.clone().add(dir.normalize().multiply(cfg("arrive-distance", 10)));
-        goal.getWorld().getChunkAtAsync(near).thenAccept(chunk -> {
-            if (state != State.ARRIVING) return;
-            box.bukkitWorld().getChunkAt(box.x >> 4, box.z >> 4);
-            Location spot = Spots.findSafe(near, box.y);
-            if (spot == null) spot = Spots.findSafe(plugin.blocks().front(box), box.y);
-            if (spot == null) spot = box.center().add(0, 1, 0);
-            spawn(spot);
-            poof(spot);
-            face(box.center());
-        });
+        World w = box.bukkitWorld();
+        int r = 2;
+        List<CompletableFuture<Chunk>> loads = new ArrayList<>();
+        for (int x = (box.x >> 4) - r; x <= (box.x >> 4) + r; x++) {
+            for (int z = (box.z >> 4) - r; z <= (box.z >> 4) + r; z++) loads.add(w.getChunkAtAsync(x, z));
+        }
+        CompletableFuture.allOf(loads.toArray(new CompletableFuture[0])).whenComplete((v, err) ->
+                org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (state != State.ARRIVING) return;
+                    Location spot = Sight.hiddenSpotNear(box.center(), cfg("appear-min-distance", 16), cfg("appear-max-distance", 28));
+                    if (spot == null) spot = Spots.findSafe(plugin.blocks().front(box), box.y);
+                    if (spot == null) spot = box.center().add(0, 1, 0);
+                    spawn(spot);
+                    face(box.center());
+                }));
     }
 
-    // ---------------- delivering ----------------
+    // ---------------- at a box ----------------
 
-    private void dropOff() {
+    /** Reached the drop-off (collect) or a mailbox (deliver): stand there for a few seconds. */
+    private void atBox() {
         face(target.center());
         Location c = target.center();
-        c.getWorld().playSound(c, Sound.ITEM_BUNDLE_DROP_CONTENTS, 1f, 1f);
-        c.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, c.clone().add(0, 0.6, 0), 8, 0.3, 0.3, 0.3);
-        for (Delivery d : new ArrayList<>(bag)) {
-            if (target.id.equals(d.mailbox)) {
-                bag.remove(d);
-                service.deliver(d);
+        if (collecting) {
+            c.getWorld().playSound(c, Sound.ITEM_BUNDLE_INSERT, 1f, 0.9f);
+        } else {
+            c.getWorld().playSound(c, Sound.ITEM_BUNDLE_DROP_CONTENTS, 1f, 1f);
+            c.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, c.clone().add(0, 0.6, 0), 8, 0.3, 0.3, 0.3);
+            for (Delivery d : new ArrayList<>(bag)) {
+                if (target.id.equals(d.mailbox)) {
+                    bag.remove(d);
+                    service.deliver(d);
+                }
             }
         }
-        state = State.DROPPING;
-        wait = 30;
+        collecting = false;
+        vanishing = false;
+        path = null;
+        state = State.WAITING;
+        wait = stopTicks();
     }
 
     private void face(Location at) {

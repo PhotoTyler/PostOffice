@@ -129,6 +129,12 @@ final class WorldListener implements Listener {
         if (!e.isSigning()) return;
         if (!e.getPreviousBookMeta().getPersistentDataContainer().has(Keys.TYPE)) return;
         String title = e.getNewBookMeta().getTitle();
+        // Take the text the player just typed: when signing is cancelled it isn't saved to the book.
+        List<String> pages = new ArrayList<>();
+        for (Component c : e.getNewBookMeta().pages()) {
+            pages.add(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(c));
+        }
+        while (!pages.isEmpty() && pages.getLast().isBlank()) pages.removeLast();
         e.setSigning(false);
         Player p = e.getPlayer();
         int slot = e.getSlot();
@@ -136,7 +142,7 @@ final class WorldListener implements Listener {
             ItemStack letter = p.getInventory().getItem(slot);
             if (MailItems.kind(letter) != MailKind.LETTER) return;
             String from = title == null || title.isBlank() ? p.getName() : PostBlocks.trimName(title);
-            p.getInventory().setItem(slot, MailItems.seal(letter, from));
+            p.getInventory().setItem(slot, MailItems.seal(letter, from, pages));
             p.playSound(p.getLocation(), Sound.ITEM_BOOK_PUT, 1f, 1.2f);
             Msg.send(p, "letter.sealed");
         });
