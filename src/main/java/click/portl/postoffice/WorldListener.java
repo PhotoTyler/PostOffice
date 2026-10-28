@@ -245,6 +245,8 @@ final class WorldListener implements Listener {
     public void onEntitiesLoad(EntitiesLoadEvent e) {
         Chunk c = e.getChunk();
         String world = c.getWorld().getName();
+        // Boxes whose saved data went missing get registered again from their model display
+        for (org.bukkit.entity.Entity en : e.getEntities()) plugin.blocks().adopt(en);
         List<PostBlock> blocks = new ArrayList<>();
         for (PostBlock pb : plugin.blocks().all()) {
             if (pb.world.equals(world) && pb.x >> 4 == c.getX() && pb.z >> 4 == c.getZ()) blocks.add(pb);

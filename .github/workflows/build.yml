@@ -58,6 +58,8 @@ jobs:
             build/libs/*.jar
             MysteryMail/build/libs/*.jar
             build/PostOffice-pack.zip
+            build/PostOffice-bedrock.mcpack
+            bedrock/geyser/postoffice_mappings.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
@@ -69,6 +71,8 @@ jobs:
             build/libs/*.jar
             MysteryMail/build/libs/*.jar
             build/PostOffice-pack.zip
+            build/PostOffice-bedrock.mcpack
+            bedrock/geyser/postoffice_mappings.json
 
   pages:
     needs: build

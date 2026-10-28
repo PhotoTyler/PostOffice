@@ -21,12 +21,18 @@ public final class PostOfficePlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // A brand-new install (no plugins/PostOffice folder yet) is the only time Post Offices get
+        // built by themselves; after that, only /postoffice build does it.
+        boolean freshFolder = !new java.io.File(getDataFolder(), "config.yml").exists()
+                && !new java.io.File(getDataFolder(), "data").exists();
         saveDefaultConfig();
         Keys.init(this);
         Msg.init(this);
         MailItems.init(this);
 
         store = new DataStore(this);
+        store.loadState(freshFolder);
+        store.checkWritable();
         store.load();
         blocks = new PostBlocks(this, store);
         parcels = new Parcels(this, store);
@@ -66,6 +72,14 @@ public final class PostOfficePlugin extends JavaPlugin {
             for (var w : Bukkit.getWorlds()) for (Entity e : w.getEntities()) {
                 if (post.isPostmanEntity(e)) e.remove();
             }
+            // Reconnect to anything in loaded chunks whose save was lost (older versions, failed saves)
+            for (var w : Bukkit.getWorlds()) {
+                for (Entity e : w.getEntities()) {
+                    blocks.adopt(e);
+                    offices.adoptClerk(e);
+                }
+            }
+            offices.markExisting();
             for (PostBlock pb : blocks.all()) if (pb.isLoaded()) blocks.refresh(pb);
             for (PlacedParcel pp : parcels.all()) parcels.refresh(pp);
             offices.scanLoaded();

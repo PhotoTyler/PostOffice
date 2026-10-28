@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "click.portl"
-version = "1.8.2"
+version = "1.9.0"
 
 repositories {
     mavenCentral()
@@ -42,6 +42,15 @@ val packZip by tasks.registering(Zip::class) {
     isReproducibleFileOrder = true
 }
 
+// Bedrock resource pack for Geyser (bedrock/pack) -> build/PostOffice-bedrock.mcpack
+val bedrockPack by tasks.registering(Zip::class) {
+    from("bedrock/pack")
+    archiveFileName.set("PostOffice-bedrock.mcpack")
+    destinationDirectory.set(layout.buildDirectory)
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 tasks.build {
-    dependsOn(packZip)
+    dependsOn(packZip, bedrockPack)
 }

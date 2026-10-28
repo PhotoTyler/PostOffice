@@ -46,10 +46,11 @@ import org.bukkit.util.RayTraceResult;
 /**
  * Getting rid of old mail:
  * <ul>
- *   <li>Right-click a lit campfire, a torch or lava with a letter or box: it sizzles away into ash.
+ *   <li>Right-click a lit campfire, a torch or lava with a letter or box: it sizzles away into Ashes.
  *       Anything inside a parcel (or clipped to a letter) pops out first, so nothing is lost.</li>
  *   <li>Letters and boxes burn as furnace fuel (furnace, smoker, blast furnace). The game doesn't
  *       count paper as fuel, so the fuel slot is filled and burned by this class.</li>
+ *   <li>In a furnace's top slot they cook into Ashes.</li>
  * </ul>
  */
 final class Burning implements Listener {
@@ -57,8 +58,12 @@ final class Burning implements Listener {
     private static final NamespacedKey PAYLOADS = new NamespacedKey("postoffice", "payloads");
     private static final NamespacedKey PAYLOAD = new NamespacedKey("postoffice", "payload");
     private static final NamespacedKey ATTACHMENT = new NamespacedKey("postoffice", "attachment");
-    private static final NamespacedKey FUEL = new NamespacedKey("mysterymail", "fuel");
-    static final NamespacedKey CHARCOAL_RECIPE = new NamespacedKey("mysterymail", "letters_to_charcoal");
+    static final NamespacedKey FUEL = new NamespacedKey("mysterymail", "fuel");
+    static final NamespacedKey OLD_CHARCOAL_RECIPE = new NamespacedKey("mysterymail", "letters_to_charcoal");
+    static final NamespacedKey LETTERS_RECIPE = new NamespacedKey("mysterymail", "letters_to_ashes");
+    static final NamespacedKey BOXES_RECIPE = new NamespacedKey("mysterymail", "boxes_to_ashes");
+    /** Custom model data for Bedrock (Geyser) players: Java uses the item model. */
+    static final float CMD_LETTERS = 7102f, CMD_BOXES = 7103f;
     private static final Set<String> BURNABLE = Set.of("letter", "sealed_letter", "parcel", "empty_box");
 
     private final MysteryMail plugin;
@@ -84,13 +89,18 @@ final class Burning implements Listener {
     }
 
     /**
-     * In the fuel slot every letter becomes the same plain "letters to burn" item (and every box the
+     * In a furnace every letter becomes the same plain "letters to burn" item (and every box the
      * same "boxes to burn"), so different letters stack there. Outside a furnace they never stack.
+     * They're gunpowder underneath, not paper, so no paper recipe (books, maps, Sticky Bags'
+     * hardening) can ever pick them up; only MysteryMail's own furnace recipes match them exactly.
      */
-    private static ItemStack fuelForm(ItemStack mail, int amount) {
+    static ItemStack fuelForm(ItemStack mail, int amount) {
         boolean letter = kind(mail).contains("letter");
-        ItemStack fuel = new ItemStack(Material.PAPER, amount);
+        ItemStack fuel = new ItemStack(Material.GUNPOWDER, amount);
         fuel.editMeta(m -> {
+            var cmd = m.getCustomModelDataComponent();
+            cmd.setFloats(List.of(letter ? CMD_LETTERS : CMD_BOXES));
+            m.setCustomModelDataComponent(cmd);
             m.setItemModel(new NamespacedKey("postoffice", letter ? "sealed_letter" : "empty_box"));
             m.itemName(net.kyori.adventure.text.Component.text(letter ? "Letters to Burn" : "Boxes to Burn"));
             m.lore(List.of(net.kyori.adventure.text.Component.text("Only good for the furnace now",
@@ -142,18 +152,25 @@ final class Burning implements Listener {
         ItemStack held = p.getInventory().getItem(hand);
         if (kind(held) == null) return;
         List<ItemStack> inside = insides(held);
-        if (held.getAmount() > 1) held.setAmount(held.getAmount() - 1);
-        else p.getInventory().setItem(hand, null);
+        // It turns into Ashes in the same slot (or in your inventory if the rest of the stack is still there).
+        if (held.getAmount() > 1) {
+            held.setAmount(held.getAmount() - 1);
+            give(p, Ashes.item(1));
+        } else {
+            p.getInventory().setItem(hand, Ashes.item(1));
+        }
 
         sizzle(fire);
         // Nothing inside is lost: it pops out into your inventory (or at your feet if it's full).
-        for (ItemStack it : inside) {
-            for (ItemStack extra : p.getInventory().addItem(it).values()) p.getWorld().dropItemNaturally(p.getLocation(), extra);
-        }
+        for (ItemStack it : inside) give(p, it);
         // An open letter is a Book & Quill: the game opens its screen by itself, so shut it again.
         if (kind.equals("letter")) Bukkit.getScheduler().runTask(plugin, () -> p.closeInventory());
         plugin.msg(p, inside.isEmpty() ? "burned" : "burned-kept",
                 "item", kind.contains("letter") ? "letter" : "box");
+    }
+
+    private static void give(Player p, ItemStack item) {
+        for (ItemStack extra : p.getInventory().addItem(item).values()) p.getWorld().dropItemNaturally(p.getLocation(), extra);
     }
 
     /** The fire the player is pointing at: a lit campfire, a torch, fire or lava. */
@@ -204,10 +221,10 @@ final class Burning implements Listener {
         int raw = e.getRawSlot();
         boolean click = e.getClick() == ClickType.LEFT || e.getClick() == ClickType.RIGHT;
         boolean fuelOn = plugin.getConfig().getBoolean("burning.furnace-fuel", true);
-        boolean charcoal = charcoalOn() && furnace.getType() == InventoryType.FURNACE;
+        boolean ashes = ashesOn() && furnace.getType() == InventoryType.FURNACE;
         int slot = -1;
         ItemStack moving = null;
-        if (click && raw == 0 && charcoal && isLetter(e.getCursor())) {
+        if (click && raw == 0 && ashes && kind(e.getCursor()) != null) {
             slot = 0;
             moving = e.getCursor();
         } else if (click && raw == 1 && fuelOn && kind(e.getCursor()) != null) {
@@ -215,8 +232,8 @@ final class Burning implements Listener {
             moving = e.getCursor();
         } else if (e.isShiftClick() && raw >= furnace.getSize() && kind(e.getCurrentItem()) != null) {
             moving = e.getCurrentItem();
-            // Like logs: letters go to the top to be cooked, otherwise they're fuel.
-            if (charcoal && isLetter(moving) && fits(furnace.getItem(0), moving)) slot = 0;
+            // Like logs: they go to the top to be burned to Ashes, otherwise they're fuel.
+            if (ashes && fits(furnace.getItem(0), moving)) slot = 0;
             else if (fuelOn) slot = 1;
         }
         if (slot < 0) {
@@ -248,29 +265,39 @@ final class Burning implements Listener {
         return there == null || there.isEmpty() || (there.isSimilar(fuelForm(mail, 1)) && there.getAmount() < 64);
     }
 
-    private static boolean isLetter(ItemStack item) {
-        String k = kind(item);
-        return k != null && k.contains("letter");
+    private boolean ashesOn() {
+        return plugin.getConfig().getBoolean("burning.furnace-ashes", true);
     }
 
-    private boolean charcoalOn() {
-        return plugin.getConfig().getBoolean("burning.letters-to-charcoal", true);
-    }
-
-    /** Hoppers feeding letters into a furnace: they become "Letters to Burn" on the way in. */
+    /** Hoppers feeding mail into a furnace from above: it becomes "Letters/Boxes to Burn" on the way in. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHopper(InventoryMoveItemEvent e) {
         if (!(e.getDestination() instanceof FurnaceInventory f) || f.getType() != InventoryType.FURNACE) return;
-        if (!charcoalOn() || !isLetter(e.getItem()) || !insides(e.getItem()).isEmpty()) return;
+        if (!ashesOn() || kind(e.getItem()) == null || !insides(e.getItem()).isEmpty()) return;
         e.setItem(fuelForm(e.getItem(), e.getItem().getAmount()));
     }
 
-    /** Furnace recipe: "Letters to Burn" -> charcoal. */
-    static FurnaceRecipe charcoalRecipe() {
-        ItemStack letters = new ItemStack(Material.PAPER);
-        letters.editMeta(m -> m.getPersistentDataContainer().set(TYPE, PersistentDataType.STRING, "sealed_letter"));
-        return new FurnaceRecipe(CHARCOAL_RECIPE, new ItemStack(Material.CHARCOAL),
-                RecipeChoice.exactChoice(fuelForm(letters, 1)), 0.1f, 200);
+    /** Dragging mail across the furnace slots would skip the conversion above: not allowed. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onFurnaceDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (!(e.getView().getTopInventory() instanceof FurnaceInventory) || kind(e.getOldCursor()) == null) return;
+        for (int raw : e.getRawSlots()) {
+            if (raw < 3) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    /** Furnace recipes: "Letters to Burn" and "Boxes to Burn" -> Ashes. */
+    static List<FurnaceRecipe> ashRecipes() {
+        ItemStack letter = new ItemStack(Material.PAPER);
+        letter.editMeta(m -> m.getPersistentDataContainer().set(TYPE, PersistentDataType.STRING, "sealed_letter"));
+        ItemStack box = new ItemStack(Material.PAPER);
+        box.editMeta(m -> m.getPersistentDataContainer().set(TYPE, PersistentDataType.STRING, "empty_box"));
+        return List.of(
+                new FurnaceRecipe(LETTERS_RECIPE, Ashes.item(1), RecipeChoice.exactChoice(fuelForm(letter, 1)), 0.1f, 200),
+                new FurnaceRecipe(BOXES_RECIPE, Ashes.item(1), RecipeChoice.exactChoice(fuelForm(box, 1)), 0.1f, 200));
     }
 
     @EventHandler

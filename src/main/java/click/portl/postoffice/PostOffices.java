@@ -39,10 +39,15 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.BoundingBox;
 
 /**
- * Builds a small Post Office in every village: a public drop-off postbox, a counter and a Postmaster
- * villager who trades. Each village is handled once, the first time one of its chunks loads (so
- * villages that already exist get one too). Spots are picked in a gap between the village's own
- * buildings and streets, on fairly flat ground, with the door facing the nearest street.
+ * Village Post Offices: a public drop-off postbox, a counter and a Postmaster villager who trades.
+ * Spots are picked in a gap between the village's own buildings and streets, on fairly flat ground,
+ * with the door facing the nearest street.
+ *
+ * <p>When they're built by themselves ({@code post-offices.auto-build}): by default only on a
+ * brand-new install, for the first village found. After that nothing is ever built automatically
+ * (an update or restart reconnects to what's there); admins use /postoffice build. Every village
+ * that has had one is remembered in villages.yml, on the world itself and on the chunk, so it is
+ * never built twice even if a save is lost.
  */
 final class PostOffices implements Listener {
     /** Owner of drop-offs the plugin builds: only admins can remove them. */
@@ -102,12 +107,23 @@ final class PostOffices implements Listener {
         }
     }
 
+    /** May a Post Office be built by itself right now? See the class comment. */
+    private boolean autoBuild() {
+        String mode = plugin.getConfig().getString("post-offices.auto-build", "first-install");
+        return switch (mode.toLowerCase()) {
+            case "every-new-village" -> true;
+            case "first-install" -> store.firstInstall && store.offices.isEmpty();
+            default -> false;
+        };
+    }
+
     private void consider(World w, GeneratedStructure gs) {
+        if (!autoBuild()) return;
         NamespacedKey key = RegistryAccess.registryAccess().getRegistry(RegistryKey.STRUCTURE).getKey(gs.getStructure());
         if (key == null || !key.getKey().startsWith("village")) return;
         BoundingBox box = gs.getBoundingBox();
         String id = w.getName() + "|" + key.getKey() + "|" + (int) box.getMinX() + "," + (int) box.getMinY() + "," + (int) box.getMinZ();
-        if (store.villagesDone.contains(id) || !busy.add(id)) return;
+        if (store.villagesDone.contains(id) || markedOnWorld(w, id) || !busy.add(id)) return;
         List<BoundingBox> pieces = new ArrayList<>();
         for (StructurePiece p : gs.getPieces()) pieces.add(p.getBoundingBox());
         Palette palette = paletteFor(key.getKey());
@@ -132,9 +148,14 @@ final class PostOffices implements Listener {
         CompletableFuture.allOf(loads.toArray(new CompletableFuture[0])).whenComplete((v, err) ->
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     busy.remove(id);
-                    if (store.villagesDone.contains(id)) return;
+                    if (store.villagesDone.contains(id) || !autoBuild()) return;
                     store.villagesDone.add(id);
-                    if (err != null) {
+                    String existing = officeChunkNear(w, cx, cz, r);
+                    if (existing != null) {
+                        // There's already a Post Office here (its save was lost): don't build another.
+                        plugin.getLogger().info("Village " + id + " already has a Post Office (" + existing + "); not building another.");
+                        markOnWorld(w, id);
+                    } else if (err != null) {
                         plugin.getLogger().warning("Couldn't load village " + id + ": " + err);
                     } else {
                         Site site = findSite(w, cx, cz, r, pieces);
@@ -143,6 +164,62 @@ final class PostOffices implements Listener {
                     }
                     store.saveVillages();
                 }));
+    }
+
+    // ---------------- remembering what's been built ----------------
+
+    private static boolean markedOnWorld(World w, String village) {
+        List<String> list = w.getPersistentDataContainer().get(Keys.VILLAGES, PersistentDataType.LIST.strings());
+        return list != null && list.contains(village);
+    }
+
+    private static void markOnWorld(World w, String village) {
+        List<String> list = w.getPersistentDataContainer().get(Keys.VILLAGES, PersistentDataType.LIST.strings());
+        List<String> out = list == null ? new ArrayList<>() : new ArrayList<>(list);
+        if (out.contains(village)) return;
+        out.add(village);
+        w.getPersistentDataContainer().set(Keys.VILLAGES, PersistentDataType.LIST.strings(), out);
+    }
+
+    /** The village id of a Post Office marked on a loaded chunk near (x, z), or null. */
+    private static String officeChunkNear(World w, int x, int z, int r) {
+        for (int cx = (x - r) >> 4; cx <= (x + r) >> 4; cx++) {
+            for (int cz = (z - r) >> 4; cz <= (z + r) >> 4; cz++) {
+                if (!w.isChunkLoaded(cx, cz)) continue;
+                String v = w.getChunkAt(cx, cz).getPersistentDataContainer().get(Keys.OFFICE, PersistentDataType.STRING);
+                if (v != null) return v;
+            }
+        }
+        return null;
+    }
+
+    /** Records existing offices on their world and chunk (offices built before these marks existed). */
+    void markExisting() {
+        for (Office o : store.offices.values()) {
+            World w = Bukkit.getWorld(o.world());
+            if (w == null) continue;
+            markOnWorld(w, o.village());
+            int cx = ((int) Math.floor(o.x())) >> 4, cz = ((int) Math.floor(o.z())) >> 4;
+            if (w.isChunkLoaded(cx, cz)) {
+                w.getChunkAt(cx, cz).getPersistentDataContainer().set(Keys.OFFICE, PersistentDataType.STRING, o.village());
+            }
+        }
+    }
+
+    /** A Postmaster whose office isn't in the saved data (lost save): take the office back on. */
+    void adoptClerk(Entity e) {
+        if (!(e instanceof Villager v)) return;
+        String village = v.getPersistentDataContainer().get(Keys.CLERK, PersistentDataType.STRING);
+        if (village == null || store.offices.containsKey(village)) return;
+        Location l = v.getLocation();
+        Office o = new Office(village, l.getWorld().getName(), l.getBlockX() + 0.5, l.getY(), l.getBlockZ() + 0.5, l.getYaw());
+        store.offices.put(village, o);
+        store.villagesDone.add(village);
+        markOnWorld(l.getWorld(), village);
+        l.getChunk().getPersistentDataContainer().set(Keys.OFFICE, PersistentDataType.STRING, village);
+        store.saveVillages();
+        plugin.traders().track(v);
+        plugin.getLogger().info("Reconnected the Postmaster of " + village + " whose saved data was missing.");
     }
 
     // ---------------- choosing a spot ----------------
@@ -383,58 +460,72 @@ final class PostOffices implements Listener {
         Block clerkBlock = b.at(2, 1, 2);
         Office office = new Office(id, w.getName(), clerkBlock.getX() + 0.5, clerkBlock.getY(), clerkBlock.getZ() + 0.5, yaw);
         store.offices.put(id, office);
+        store.villagesDone.add(id);
+        markOnWorld(w, id);
+        dropBlock.getChunk().getPersistentDataContainer().set(Keys.OFFICE, PersistentDataType.STRING, id);
+        clerkBlock.getChunk().getPersistentDataContainer().set(Keys.OFFICE, PersistentDataType.STRING, id);
+        if (store.firstInstall) {
+            store.firstInstall = false; // from now on, only /postoffice build makes new ones
+            store.saveState();
+        }
         spawnClerk(office);
 
         plugin.getLogger().info("Built a Post Office in village " + id + " at " + dropBlock.getX() + ", "
                 + dropBlock.getY() + ", " + dropBlock.getZ() + (drop == null ? " (drop-off failed)" : ""));
     }
 
-    /** Rebuilds the Post Office closest to {@code near} with the current design. */
-    boolean rebuildNearest(Location near, double maxDistance) {
-        Office best = null;
-        double bestDist = maxDistance * maxDistance;
-        for (Office o : store.offices.values()) {
-            if (!o.world().equals(near.getWorld().getName())) continue;
-            double d = dist2(o.x(), o.z(), near.getX(), near.getZ());
-            if (d < bestDist) {
-                bestDist = d;
-                best = o;
-            }
-        }
-        if (best == null) return false;
-        rebuild(best);
-        return true;
-    }
-
-    private void rebuild(Office o) {
-        World w = Bukkit.getWorld(o.world());
-        if (w == null) return;
-        BlockFace door = switch (Math.round(((o.yaw() % 360) + 360) % 360)) {
-            case 90 -> BlockFace.WEST;
-            case 180 -> BlockFace.NORTH;
-            case 270 -> BlockFace.EAST;
+    /** /postoffice build: a fresh Post Office centred where the player stands, door facing the way they look. */
+    void buildHere(org.bukkit.entity.Player p) {
+        Location l = p.getLocation();
+        World w = l.getWorld();
+        BlockFace door = switch (Math.round((((l.getYaw() % 360) + 360) % 360) / 90f) % 4) {
+            case 1 -> BlockFace.WEST;
+            case 2 -> BlockFace.NORTH;
+            case 3 -> BlockFace.EAST;
             default -> BlockFace.SOUTH;
         };
-        // The Postmaster stands at local (2, 2): work back to the site corner from there.
-        int cx = (int) Math.floor(o.x()), cz = (int) Math.floor(o.z());
-        int[] r = rotate(-2, -2, door);
-        Site site = new Site(cx - 4 - r[0], cz - 4 - r[1], (int) Math.round(o.y()) - 1, door);
-        Builder b = new Builder(w, site);
+        Site site = new Site(l.getBlockX() - 4, l.getBlockZ() - 4, l.getBlockY() - 1, door);
+        String id = w.getName() + "|built|" + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
+        String biome = w.getBiome(l).getKey().getKey();
+        build(w, id, site, paletteFor(biome.contains("badlands") ? "desert" : biome));
+        store.saveVillages();
+    }
 
-        // Take out the old postboxes and the Postmaster
-        for (int lx = 0; lx <= 8; lx++) for (int lz = 0; lz <= 8; lz++) for (int y = 1; y <= 2; y++) {
-            PostBlock pb = plugin.blocks().at(b.at(lx, y, lz));
-            if (pb != null && pb.owner.equals(SERVER)) plugin.blocks().remove(pb);
-        }
-        for (Entity e : w.getNearbyEntities(new Location(w, o.x(), o.y(), o.z()), 6, 6, 6)) {
-            if (o.village().equals(e.getPersistentDataContainer().get(Keys.CLERK, PersistentDataType.STRING))) {
-                for (Entity passenger : e.getPassengers()) passenger.remove();
-                e.remove();
+    boolean hasAnyOffice() {
+        return !store.offices.isEmpty();
+    }
+
+    /**
+     * /postoffice rebuild: every Postmaster removed (with any duplicates or stuck ones) and a fresh one
+     * put on his spot. Returns {rebuilt, waiting for their chunk to load}.
+     */
+    int[] rebuildClerks() {
+        // Every Postmaster (and his cap) in loaded chunks goes, wherever he's wandered or got stuck,
+        // including duplicates left by older versions.
+        for (World w : Bukkit.getWorlds()) {
+            for (Entity e : w.getEntities()) {
+                String village = e.getPersistentDataContainer().get(Keys.CLERK, PersistentDataType.STRING);
+                if (village != null && store.offices.containsKey(village)) {
+                    for (Entity passenger : e.getPassengers()) passenger.remove();
+                    e.remove();
+                }
             }
         }
-        store.offices.remove(o.village());
-        build(w, o.village(), site, paletteFor(o.village()));
+        int done = 0, waiting = 0;
+        for (Office o : store.offices.values()) {
+            World w = Bukkit.getWorld(o.world());
+            if (w == null) continue;
+            if (!w.isChunkLoaded(((int) Math.floor(o.x())) >> 4, ((int) Math.floor(o.z())) >> 4)) {
+                waiting++; // checkClerk sorts him out when the chunk loads
+                continue;
+            }
+            store.clerkDeaths.remove(o.village());
+            spawnClerk(o);
+            done++;
+        }
         store.saveVillages();
+        markExisting();
+        return new int[]{done, waiting};
     }
 
     private static int[] rotate(int dx, int dz, BlockFace door) {
@@ -478,6 +569,7 @@ final class PostOffices implements Listener {
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent e) {
         Chunk c = e.getChunk();
+        for (Entity en : e.getEntities()) adoptClerk(en);
         for (Office o : store.offices.values()) {
             if (o.world().equals(c.getWorld().getName()) && ((int) Math.floor(o.x())) >> 4 == c.getX()
                     && ((int) Math.floor(o.z())) >> 4 == c.getZ()) {

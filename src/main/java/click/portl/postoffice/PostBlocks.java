@@ -297,9 +297,113 @@ final class PostBlocks {
             Block part = pb.block().getRelative(0, i, 0);
             if (part.getType() == Material.BARRIER) part.setType(Material.AIR, false);
         }
-        Displays.spawnModel(pb.center(), pb.type.kind.id, pb.yaw, Keys.BLOCK_ID, pb.id.toString(), "model");
+        var model = Displays.spawnModel(pb.center(), pb.type.kind.id, pb.yaw, Keys.BLOCK_ID, pb.id.toString(), "model");
+        // Everything needed to put the box back if its saved data is ever lost
+        model.getPersistentDataContainer().set(Keys.BLOCK_DATA, org.bukkit.persistence.PersistentDataType.STRING,
+                pb.type.name() + "|" + pb.owner + "|" + pb.yaw + "|" + pb.name);
         Hitboxes.spawn(pb.center(), pb.yaw, pb.type.kind.id, Keys.BLOCK_ID, pb.id.toString());
         updateHologram(pb);
+    }
+
+    // ---------------- recovery and rebuilding ----------------
+
+    /**
+     * A box's model display whose box isn't in the saved data (a save that failed, or an older
+     * version): registers the box again so it can be used and broken. Boxes from older versions
+     * don't record their owner, so only drop-offs can be recovered from those (as Post Office boxes).
+     * Returns the recovered box, or null.
+     */
+    PostBlock adopt(Entity e) {
+        if (!(e instanceof org.bukkit.entity.ItemDisplay d) || !"model".equals(Displays.roleOf(e))) return null;
+        String idText = Displays.tagOf(e, Keys.BLOCK_ID);
+        if (idText == null) return null;
+        UUID id;
+        try {
+            id = UUID.fromString(idText);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+        if (store.blocks.containsKey(id)) return null;
+        Block b = e.getLocation().getBlock();
+        if (at(b) != null) return null;
+        PostBlock.Type type;
+        UUID owner;
+        String name;
+        float yaw;
+        String data = e.getPersistentDataContainer().get(Keys.BLOCK_DATA, org.bukkit.persistence.PersistentDataType.STRING);
+        try {
+            if (data != null) {
+                String[] parts = data.split("[|]", 4);
+                type = PostBlock.Type.valueOf(parts[0]);
+                owner = UUID.fromString(parts[1]);
+                yaw = Float.parseFloat(parts[2]);
+                name = parts.length > 3 ? parts[3] : "Mailbox";
+            } else {
+                var model = d.getItemStack() == null || !d.getItemStack().hasItemMeta() ? null : d.getItemStack().getItemMeta().getItemModel();
+                MailKind kind = model == null ? null : MailKind.byId(model.getKey());
+                if (kind != MailKind.DROPOFF) return null;
+                type = PostBlock.Type.DROPOFF;
+                owner = PostOffices.SERVER;
+                name = "Post Office";
+                yaw = e.getLocation().getYaw() - 180f;
+            }
+        } catch (RuntimeException ex) {
+            return null;
+        }
+        PostBlock pb = new PostBlock(id, type, owner, name, b.getWorld().getName(), b.getX(), b.getY(), b.getZ(), yaw);
+        store.blocks.put(id, pb);
+        index(pb);
+        store.saveBlocks();
+        plugin.getLogger().info("Reconnected a " + type.kind.id + " at " + pb.world + " " + pb.x + ", " + pb.y + ", " + pb.z
+                + " whose saved data was missing.");
+        return pb;
+    }
+
+    /** True for any PostOffice box entity (model, hologram, hitbox) whose box isn't saved. */
+    boolean isOrphan(Entity e) {
+        String idText = Displays.tagOf(e, Keys.BLOCK_ID);
+        if (idText == null) return false;
+        try {
+            return !store.blocks.containsKey(UUID.fromString(idText));
+        } catch (IllegalArgumentException ex) {
+            return true;
+        }
+    }
+
+    /**
+     * /postoffice rebuild for one box: removes everything drawn for it, and any leftovers stuck around
+     * it from older versions, then places a fresh model and hitbox. Mail lives in the data files, so
+     * it's untouched. Returns how many old entities were removed (0 if its chunk isn't loaded).
+     */
+    int rebuild(PostBlock pb) {
+        if (!pb.isLoaded()) return 0;
+        int removed = 0;
+        String id = pb.id.toString();
+        for (Entity e : pb.bukkitWorld().getNearbyEntities(pb.center(), 2.5, 3.5, 2.5)) {
+            if (id.equals(Displays.tagOf(e, Keys.BLOCK_ID)) || isOrphan(e)) {
+                for (Entity passenger : e.getPassengers()) passenger.remove();
+                e.remove();
+                removed++;
+            }
+        }
+        index(pb);
+        refresh(pb);
+        return removed;
+    }
+
+    /** Removes box entities in loaded chunks that belong to no saved box. */
+    int removeOrphans() {
+        int removed = 0;
+        for (org.bukkit.World w : Bukkit.getWorlds()) {
+            for (Entity e : w.getEntities()) {
+                if (isOrphan(e)) {
+                    for (Entity passenger : e.getPassengers()) passenger.remove();
+                    e.remove();
+                    removed++;
+                }
+            }
+        }
+        return removed;
     }
 
     private List<Entity> displays(PostBlock pb) {

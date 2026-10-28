@@ -1,0 +1,28 @@
+{
+  "format_version": "1",
+  "items": {
+    "minecraft:gunpowder": [
+      {
+        "name": "postoffice_ashes",
+        "custom_model_data": 7101,
+        "display_name": "Ashes",
+        "icon": "postoffice_ashes",
+        "allow_offhand": true
+      },
+      {
+        "name": "postoffice_letters_to_burn",
+        "custom_model_data": 7102,
+        "display_name": "Letters to Burn",
+        "icon": "postoffice_letters_to_burn",
+        "allow_offhand": true
+      },
+      {
+        "name": "postoffice_boxes_to_burn",
+        "custom_model_data": 7103,
+        "display_name": "Boxes to Burn",
+        "icon": "postoffice_boxes_to_burn",
+        "allow_offhand": true
+      }
+    ]
+  }
+}

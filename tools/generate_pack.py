@@ -405,6 +405,35 @@ CROWN = [
     "rrrrrrrrrrrrrrrr",
 ]
 
+# Ashes (MysteryMail): a little heap of grey ash, darker than gunpowder, with glowing embers.
+ASHES = [
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "......aa........",
+    ".....abba..e....",
+    "....abcbba......",
+    "...abbcobbba....",
+    "..abcbbbbcbba...",
+    "..bbbobcbbobb...",
+    ".abcbbbbbcbbba..",
+    ".bbbbcbobbbcbb..",
+    ".dbbbbbbbbbbbd..",
+    "..dddddddddd....",
+    "................",
+]
+ASHES_PAL = {
+    "a": hexc("8a8a8c"),  # light ash on top
+    "b": hexc("5b5b5f"),  # ash
+    "c": hexc("3e3e42"),  # dark flecks
+    "d": hexc("2a2a2d"),  # shadow underneath
+    "o": hexc("ff8a1f"),  # glowing ember
+    "e": hexc("ffb347"),  # a spark drifting up
+}
+
+
 def build_textures():
     t = os.path.join(NS, "textures")
     write_png(os.path.join(t, "item", "letter.png"), from_map(LETTER, PAPER))
@@ -412,6 +441,7 @@ def build_textures():
     write_png(os.path.join(t, "item", "letter_open.png"), from_map(OPEN_ENV, OPENED))
     write_png(os.path.join(t, "item", "parcel.png"), from_map(PARCEL, BOX))
     write_png(os.path.join(t, "item", "empty_box.png"), from_map(EMPTY, BOX))
+    write_png(os.path.join(t, "item", "ashes.png"), from_map(ASHES, ASHES_PAL))
 
     b = os.path.join(t, "block")
     write_png(os.path.join(b, "cardboard_side.png"), cardboard(1))
@@ -477,7 +507,7 @@ def build_models():
     m = os.path.join(NS, "models", "item")
     models = {}
 
-    for name in ("letter", "sealed_letter", "letter_open", "parcel", "empty_box"):
+    for name in ("letter", "sealed_letter", "letter_open", "parcel", "empty_box", "ashes"):
         models[name] = {"parent": "minecraft:item/generated", "textures": {"layer0": "postoffice:item/" + name}}
 
     models["block_base"] = {"display": BLOCK_DISPLAY}
@@ -645,9 +675,71 @@ def build_meta():
         json.dump(meta, f, indent=2)
 
 
+# ---------------------------------------------------------------- Bedrock (Geyser)
+
+BEDROCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bedrock")
+
+# Items Bedrock players (via Geyser) should see with their own icon. Matched by the item's base
+# item + custom model data, which the plugins set alongside the Java item model.
+BEDROCK_ITEMS = [
+    # (bedrock name, java base item, custom model data, display name, source texture)
+    ("postoffice_ashes", "minecraft:gunpowder", 7101, "Ashes", "ashes"),
+    ("postoffice_letters_to_burn", "minecraft:gunpowder", 7102, "Letters to Burn", "sealed_letter"),
+    ("postoffice_boxes_to_burn", "minecraft:gunpowder", 7103, "Boxes to Burn", "empty_box"),
+]
+
+
+def build_bedrock():
+    """A Bedrock resource pack (bedrock/pack) and Geyser custom item mappings (bedrock/geyser)."""
+    pack = os.path.join(BEDROCK, "pack")
+    manifest = {
+        "format_version": 2,
+        "header": {
+            "name": "PostOffice",
+            "description": "PostOffice / MysteryMail items for Bedrock players (Geyser)",
+            # Fixed ids: Bedrock clients cache packs by these, so they must never change.
+            "uuid": "6f1d2c55-3b8e-4c1a-9f0e-2a7b5d9c4e10",
+            "version": [1, 0, 0],
+            "min_engine_version": [1, 20, 0],
+        },
+        "modules": [{"type": "resources", "uuid": "a43e8b71-0c5d-4f2a-b6e9-7d1c3f5a8b22", "version": [1, 0, 0]}],
+    }
+    os.makedirs(pack, exist_ok=True)
+    with open(os.path.join(pack, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+    textures = {}
+    src = os.path.join(NS, "textures", "item")
+    for name, _base, _cmd, _display, texture in BEDROCK_ITEMS:
+        with open(os.path.join(src, texture + ".png"), "rb") as fin:
+            data = fin.read()
+        out = os.path.join(pack, "textures", "items", name + ".png")
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(out, "wb") as fout:
+            fout.write(data)
+        textures[name] = {"textures": "textures/items/" + name}
+    with open(os.path.join(pack, "textures", "item_texture.json"), "w", encoding="utf-8") as f:
+        json.dump({"resource_pack_name": "postoffice", "texture_name": "atlas.items", "texture_data": textures}, f, indent=2)
+    write_png(os.path.join(pack, "pack_icon.png"), scale_up(from_map(SEALED, ENV), 8))
+
+    mappings = {"format_version": "1", "items": {}}
+    for name, base, cmd, display, _texture in BEDROCK_ITEMS:
+        mappings["items"].setdefault(base, []).append({
+            "name": name,
+            "custom_model_data": cmd,
+            "display_name": display,
+            "icon": name,
+            "allow_offhand": True,
+        })
+    geyser = os.path.join(BEDROCK, "geyser")
+    os.makedirs(geyser, exist_ok=True)
+    with open(os.path.join(geyser, "postoffice_mappings.json"), "w", encoding="utf-8") as f:
+        json.dump(mappings, f, indent=2)
+
+
 if __name__ == "__main__":
     build_textures()
     build_models()
     build_lang()
     build_meta()
-    print("Resource pack written to", os.path.normpath(ROOT))
+    build_bedrock()
+    print("Resource pack written to", os.path.normpath(ROOT), "and Bedrock pack to", os.path.normpath(BEDROCK))

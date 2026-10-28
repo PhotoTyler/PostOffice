@@ -1,0 +1,15 @@
+{
+  "resource_pack_name": "postoffice",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "postoffice_ashes": {
+      "textures": "textures/items/postoffice_ashes"
+    },
+    "postoffice_letters_to_burn": {
+      "textures": "textures/items/postoffice_letters_to_burn"
+    },
+    "postoffice_boxes_to_burn": {
+      "textures": "textures/items/postoffice_boxes_to_burn"
+    }
+  }
+}

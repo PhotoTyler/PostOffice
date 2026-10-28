@@ -171,6 +171,33 @@ final class Recipes implements Listener {
     }
 
     /** Anvils, smithing, grindstones, cartography tables... none of them get PostOffice items. */
+    /** The crafter block skips the prepare event: same rule, mail only in PostOffice recipes. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCrafter(org.bukkit.event.block.CrafterCraftEvent e) {
+        NamespacedKey key = keyOf(e.getRecipe());
+        if (key != null && key.getNamespace().equals(Keys.NS)) return;
+        if (e.getBlock().getState() instanceof org.bukkit.block.Crafter crafter) {
+            for (ItemStack it : crafter.getInventory().getContents()) {
+                if (MailItems.kind(it) != null) {
+                    e.setCancelled(true);
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Real villagers (librarians, cartographers) would take letters and boxes as plain paper. The
+     * Postman's own trades are virtual merchants, so they aren't affected.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onTrade(org.bukkit.event.inventory.InventoryClickEvent e) {
+        if (!(e.getInventory() instanceof org.bukkit.inventory.MerchantInventory inv)) return;
+        if (e.getSlotType() != org.bukkit.event.inventory.InventoryType.SlotType.RESULT) return;
+        if (!(inv.getMerchant() instanceof org.bukkit.entity.Entity)) return;
+        if (MailItems.kind(inv.getItem(0)) != null || MailItems.kind(inv.getItem(1)) != null) e.setCancelled(true);
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onPrepareResult(PrepareResultEvent e) {
         for (ItemStack it : e.getInventory().getContents()) {

@@ -21,6 +21,9 @@ final class Keys {
     static NamespacedKey ROLE;        // which display entity this is (model, holo, flap...)
     static NamespacedKey CLERK;       // Post Office Postmaster (value = village id)
     static NamespacedKey TRADER;      // villager that trades as a Postman
+    static NamespacedKey BLOCK_DATA;  // on a box's model display: "type|owner|yaw|name", to recover it if its save is lost
+    static NamespacedKey VILLAGES;    // on the world: every village that has had its Post Office built
+    static NamespacedKey OFFICE;      // on the chunk holding a Post Office's drop-off: the village id
 
     static NamespacedKey RECIPE_LETTER;
     static NamespacedKey RECIPE_EMPTY_BOX;
@@ -47,6 +50,9 @@ final class Keys {
         ROLE = new NamespacedKey(plugin, "role");
         CLERK = new NamespacedKey(plugin, "clerk");
         TRADER = new NamespacedKey(plugin, "trader");
+        BLOCK_DATA = new NamespacedKey(plugin, "block_data");
+        VILLAGES = new NamespacedKey(plugin, "villages");
+        OFFICE = new NamespacedKey(plugin, "office");
 
         RECIPE_LETTER = new NamespacedKey(plugin, "letter");
         RECIPE_EMPTY_BOX = new NamespacedKey(plugin, "empty_box");

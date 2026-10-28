@@ -114,12 +114,20 @@ parcel:
     - { item: TOTEM_OF_UNDYING, min: 1, max: 1, weight: 1 }
 
 # Getting rid of old mail: right-click a lit campfire, a torch, fire or lava with a letter or box
-# and it burns away (anything inside pops out first). Letters and boxes also work as furnace fuel.
+# and it burns into Ashes (anything inside pops out first). Letters and boxes also work as furnace
+# fuel, and in a furnace's top slot they cook into Ashes.
 burning:
   enabled: true
   furnace-fuel: true
-  # Letters put in the top slot of a furnace cook into charcoal
-  letters-to-charcoal: true
+  # Letters and empty boxes in the top slot of a furnace cook into Ashes
+  furnace-ashes: true
+
+# Ashes: never usable as gunpowder (no TNT, fireworks, potions...)
+ashes:
+  # Chance a right-click on a crop grows it one stage (bone meal always grows it 2-5 stages)
+  crop-chance: 0.25
+  # Chance a right-click on a composter raises its level
+  composter-chance: 0.1
   # How long they burn in a furnace (200 ticks = smelts 1 item)
   letter-fuel-ticks: 100
   box-fuel-ticks: 300
@@ -130,8 +138,8 @@ bell-distance: 10
 messages:
   # Shown (with a bell) when the Postman is nearly at the mailbox (blank = say nothing)
   on-the-way: "<gray><i>You hear a bicycle bell... the Postman is nearly at your mailbox!</i>"
-  burned: "<gray>The <item> sizzles away into ash."
-  burned-kept: "<gray>The <item> sizzles away into ash. <white>You kept what was inside."
+  burned: "<gray>The <item> sizzles away into Ashes."
+  burned-kept: "<gray>The <item> sizzles away into Ashes. <white>You kept what was inside."
   fuel-not-empty: "<red>Take the things out first - this would burn them!"
   sent: "<green>Mystery <kind> sent to <player>."
   no-mailbox: "<red><player> doesn't have a mailbox."

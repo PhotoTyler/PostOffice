@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "PostOffice",
+    "description": "PostOffice / MysteryMail items for Bedrock players (Geyser)",
+    "uuid": "6f1d2c55-3b8e-4c1a-9f0e-2a7b5d9c4e10",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "a43e8b71-0c5d-4f2a-b6e9-7d1c3f5a8b22",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

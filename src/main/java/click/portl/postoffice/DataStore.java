@@ -26,7 +26,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
  *   <li>queue.yml    - mail posted but not yet delivered (survives restarts)</li>
  *   <li>returns.yml  - undeliverable mail waiting to be handed back to its sender</li>
  *   <li>parcels.yml  - parcels placed on the ground</li>
+ *   <li>villages.yml - Post Offices, and every village already handled</li>
+ *   <li>state.yml    - whether this is a fresh install (only then are Post Offices built by themselves)</li>
  * </ul>
+ * Ids are fixed UUIDs (and village ids) that never change between versions.
  * Files are built on the main thread and written on one background thread, in order, via a temp file.
  */
 final class DataStore {
@@ -47,6 +50,8 @@ final class DataStore {
     final java.util.Set<String> villagesDone = new java.util.HashSet<>();
     final Map<String, PostOffices.Office> offices = new LinkedHashMap<>();
     final Map<String, Long> clerkDeaths = new HashMap<>(); // village -> when its Postmaster was killed
+    /** True only on a brand-new install, until the first Post Office has been built. */
+    boolean firstInstall;
 
     DataStore(PostOfficePlugin plugin) {
         this.plugin = plugin;
@@ -56,6 +61,37 @@ final class DataStore {
     }
 
     // ---------------- load ----------------
+
+    /** Call before anything else is created in the data folder. */
+    void loadState(boolean freshFolder) {
+        File f = new File(dir, "state.yml");
+        if (f.exists()) {
+            firstInstall = YamlConfiguration.loadConfiguration(f).getBoolean("first-install", false);
+        } else {
+            firstInstall = freshFolder;
+            saveState();
+        }
+    }
+
+    void saveState() {
+        YamlConfiguration y = new YamlConfiguration();
+        y.set("first-install", firstInstall);
+        write(new File(dir, "state.yml"), y.saveToString());
+    }
+
+    /** Checks the data folder can actually be written, and says so loudly if not. */
+    void checkWritable() {
+        io.execute(() -> {
+            File test = new File(dir, ".write-test");
+            try {
+                Files.writeString(test.toPath(), "ok", StandardCharsets.UTF_8);
+                Files.deleteIfExists(test.toPath());
+            } catch (IOException e) {
+                plugin.getLogger().severe("CAN'T SAVE to " + dir + " (" + e + "). Mailboxes, mail and Post Offices "
+                        + "will be forgotten on restart. Check the folder's permissions / disk space.");
+            }
+        });
+    }
 
     void load() {
         YamlConfiguration y = YamlConfiguration.loadConfiguration(new File(dir, "blocks.yml"));
@@ -262,7 +298,18 @@ final class DataStore {
             try {
                 File tmp = new File(file.getParentFile(), file.getName() + ".tmp");
                 Files.writeString(tmp.toPath(), content, StandardCharsets.UTF_8);
-                Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                try {
+                    Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (IOException atomicFailed) {
+                    // Some hosts' file systems can't do an atomic rename: fall back to a plain one,
+                    // and if even that fails, write the file directly.
+                    try {
+                        Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException moveFailed) {
+                        Files.writeString(file.toPath(), content, StandardCharsets.UTF_8);
+                        Files.deleteIfExists(tmp.toPath());
+                    }
+                }
             } catch (IOException e) {
                 plugin.getLogger().log(Level.SEVERE, "Could not save " + file.getName(), e);
             }
