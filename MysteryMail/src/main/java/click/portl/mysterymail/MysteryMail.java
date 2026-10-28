@@ -310,7 +310,9 @@ public final class MysteryMail extends JavaPlugin implements Listener {
     // ---------------- misc ----------------
 
     void msg(CommandSender to, String key, String... placeholders) {
-        String text = getConfig().getString("messages." + key, "");
+        // getString(path) falls back to the built-in default when an older config.yml lacks the message
+        String text = getConfig().getString("messages." + key);
+        if (text == null) text = "";
         if (text.isBlank()) return;
         TagResolver.Builder tags = TagResolver.builder();
         for (int i = 0; i + 1 < placeholders.length; i += 2) tags.resolver(Placeholder.unparsed(placeholders[i], placeholders[i + 1]));

@@ -19,8 +19,16 @@ final class Msg {
     }
 
     static Component get(String key, String... placeholders) {
-        String raw = plugin.getConfig().getString("messages." + key, "<red>Missing message: " + key);
-        return parse(raw, placeholders);
+        return parse(text(key, "<red>Missing message: " + key), placeholders);
+    }
+
+    /**
+     * A message from the server's config.yml, or the built-in default when that file is from an
+     * older version and doesn't have it yet. (getString(path, fallback) would skip the defaults.)
+     */
+    private static String text(String key, String fallback) {
+        String raw = plugin.getConfig().getString("messages." + key);
+        return raw == null ? fallback : raw;
     }
 
     static Component parse(String raw, String... placeholders) {
@@ -37,7 +45,7 @@ final class Msg {
     }
 
     static void send(CommandSender to, String key, String... placeholders) {
-        String raw = plugin.getConfig().getString("messages." + key, "");
+        String raw = text(key, "");
         if (raw.isEmpty()) return;
         to.sendMessage(prefix().append(parse(raw, placeholders)));
     }
@@ -45,11 +53,11 @@ final class Msg {
     /** A line spoken by the Postman. */
     static void postman(CommandSender to, String raw, String... placeholders) {
         String name = plugin.getConfig().getString("postman.name", "Postman");
-        to.sendMessage(parse(plugin.getConfig().getString("messages.postman-prefix", "<gold>[<name>]</gold> "), "name", name)
+        to.sendMessage(parse(text("postman-prefix", "<gold>[<name>]</gold> "), "name", name)
                 .append(parse(raw, placeholders)));
     }
 
     static Component prefix() {
-        return MM.deserialize(plugin.getConfig().getString("messages.prefix", ""));
+        return MM.deserialize(text("prefix", ""));
     }
 }
